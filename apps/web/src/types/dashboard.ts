@@ -17,6 +17,7 @@ export type DashboardStats = {
   pendingTasks: number;
   totalFlowPercentage: number;
   activeDays: number;
+  inactiveDays: number;
   weeklyActivity: WeeklyActivity[];
   mainObjective: MainObjective;
 };
