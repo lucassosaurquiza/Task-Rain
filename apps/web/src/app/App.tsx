@@ -2,33 +2,82 @@ import { useState } from "react";
 import HomeDashboard from "../components/dashboard/HomeDashboard";
 import AppShell from "../components/layout/AppShell";
 import Header from "../components/layout/Header";
+import ObjectivesPage from "../components/objectives/ObjectivesPage";
 import TasksPage from "../components/tasks/TasksPage";
+import { mockTasks } from "../data/mockTasks";
+import type { Task, TaskStatus } from "../types/task";
 
 type AppView = "home" | "tasks" | "objectives";
 
+function createTask(title: string): Task {
+  return {
+    id: crypto.randomUUID(),
+    title,
+    status: "brain_dump",
+    createdAt: new Date().toISOString(),
+  };
+}
+
 function App() {
   const [activeView, setActiveView] = useState<AppView>("home");
+  const [tasks, setTasks] = useState<Task[]>(mockTasks);
+
+  const unorganizedTaskCount = tasks.filter(
+    (task) => task.status === "brain_dump",
+  ).length;
+
+  function handleCreateTask(title: string) {
+    const task = createTask(title);
+
+    setTasks((currentTasks) => [task, ...currentTasks]);
+
+    return task;
+  }
+
+  function handleUndoCreateTask(taskId: string) {
+    setTasks((currentTasks) =>
+      currentTasks.filter((task) => task.id !== taskId),
+    );
+  }
+
+  function handleUpdateTaskStatus(taskId: string, status: TaskStatus) {
+    setTasks((currentTasks) =>
+      currentTasks.map((task) => {
+        if (task.id !== taskId) {
+          return task;
+        }
+
+        return {
+          ...task,
+          status,
+          completedAt:
+            status === "completed" ? new Date().toISOString() : undefined,
+        };
+      }),
+    );
+  }
 
   return (
     <AppShell>
       <Header activeView={activeView} onChangeView={setActiveView} />
 
-      {activeView === "home" ? <HomeDashboard /> : null}
-      {activeView === "tasks" ? <TasksPage /> : null}
-      {activeView === "objectives" ? (
-        <main className="flex flex-1 items-center justify-center py-10">
-          <section className="w-full max-w-5xl rounded-lg border border-zinc-800 bg-zinc-900/60 p-8">
-            <p className="text-sm font-medium text-emerald-400">Objetivos</p>
-            <h2 className="mt-2 text-3xl font-semibold tracking-tight text-zinc-50">
-              Objetivos principales
-            </h2>
-            <p className="mt-3 text-sm leading-6 text-zinc-400">
-              Esta vista va a conectar tus tareas diarias con objetivos más
-              grandes.
-            </p>
-          </section>
-        </main>
+      {activeView === "home" ? (
+        <HomeDashboard
+          unorganizedTaskCount={unorganizedTaskCount}
+          onCreateTask={handleCreateTask}
+          onUndoCreateTask={handleUndoCreateTask}
+          onOpenTasks={() => setActiveView("tasks")}
+        />
       ) : null}
+      {activeView === "tasks" ? (
+        <TasksPage
+          tasks={tasks}
+          onCreateTask={handleCreateTask}
+          onUndoCreateTask={handleUndoCreateTask}
+          onUpdateTaskStatus={handleUpdateTaskStatus}
+        />
+      ) : null}
+      {activeView === "objectives" ? <ObjectivesPage /> : null}
     </AppShell>
   );
 }

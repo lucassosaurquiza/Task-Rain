@@ -1,0 +1,86 @@
+FLUJO NORMAL
+
+1- Como usuario debo poder registrar cuales son mis objetivos anuales, que vendrian a ser 
+como las "metas" a lograr, esas metas son las que van a "alimentar" las tablas de porcentajes.
+
+2- Luego de pasamos a la pantalla de tareas donde ahi vamos a poder colocar todas las tareas que tengamos
+al levantarnos de la cama, sin pensar, agrego todo lo que quiero hacer, para despues filtrar a otra 
+columna las tareas importantes y por ultimo filtrar las tareas que voy a realizar en el dia, recien
+las tareas del dia van a alimentar los paneles de estadisticas que eso visualmente nos van a decir 
+si estamos avanzando o no.
+
+3- Por ultimo tenemos la pantalla de inicio que va a ser las estadisticas del sistema, en donde
+ni bien estemos en el sistema vamos a poder visualizar que tanto estamos avanzando con nuestros 
+objetivos, podria decirse que es la pantalla mas importante ya que muestra los resultados obtenidos,
+posiblemente mas adelante vamos a poder colocar como "premios" por objetivos para mostrarlos como 
+motivacion, pero por ahora no.
+
+TAREAS DE DESARROLLO
+
+Como usuario debo poder tener un espacio donde colocar mis ideas/tareas del dia
+Como usuario debo poder filtrar esas ideas para que sean ideas/tareas importantes
+Como usuario debo poder filtrar las ideas/tareas diarias que voy a realizar
+Como usuario debo poder definir cuales son mis objetivos anuales en la vista de objetivos 
+Como usuario debo poder ver que tanto avance con mis objetivos en la pantalla de estadisticas/inicio
+
+
+
+SPRINT 1 "Inicio":
+
+- Definir cuantas pantallas va a tener el sistema [x]
+- Revisar pantalla inicio para definir contenido a ver [x]
+- Revisar pantalla tareas para definir contenido a ver [x]
+- Revisar pantalla objetivos para definir contenido a ver [x]
+- Quitemos flow diario y dejemos solo el nombre de la app [x]
+- Sacamos la palabra "inicio" y dejamos solamente el titulo "rendimiento general" [x]
+- Sacamos todo el contenido de constacia semanal y objetivo principal, dejamos el 
+resto del contenido con el 100% del ancho [x]
+- Con la nueva interfaz colocar animaciones a la accion de agregar una tarea para
+que sea mas intuitiva y amigable [x]
+- Agregar spinner de simulacion de carga [x]
+
+SPRINT 2 "Tareas":
+
+- Agregar el mismo componente que tenemos en el inicio para agregar tareas en la vista de tareas. [x]
+- Colocar la lluvia de tareas como una lista de tareas lista para hacer drag and drop. [x]
+- Agregar la animacion de drag and drop para las tareas, de tal manera que podamos ir agregando
+o sacando tareas de un lugar a otro. [x] 
+- La seccion de lluvia de tareas se va a convertir en una lista de tareas, ejemplo: 
+. tarea 1
+. tarea 2
+. tarea 3
+esta lista solo es como un paneo general de todas las tareas entonces van a ir una debajo de otra. [x]
+- Sacar los botones ya que utilizamos drag and drop. [x]
+- Agregar como "avisos" de que se debe utilizar el drag and drop. [x]
+
+SPRINT 3 "Persistencia de tareas":
+
+- Cambiar el modelo de tareas para separar importancia, fecha diaria y finalización. []
+- Guardar las tareas en localStorage. []
+- Recuperar las tareas cuando se recarga la aplicación. []
+- Eliminar las tareas simuladas como estado inicial definitivo. []
+- Permitir editar el título de una tarea. []
+- Permitir eliminar una tarea con confirmación. []
+- Mantener los cambios realizados mediante drag and drop después de recargar. []
+- Agregar soporte táctil o una alternativa accesible al drag and drop. []
+- Agregar estados vacíos cuando todavía no existen tareas. []
+
+SPRINT 4 "Objetivos":
+
+- Crear un objetivo anual. []
+- Editar y eliminar objetivos. []
+- Agregar una descripción y fecha límite. []
+- Asociar tareas con un objetivo. []
+- Mostrar todas las tareas relacionadas con cada objetivo. []
+- Calcular el progreso según las tareas completadas. []
+- Guardar objetivos en localStorage. []
+
+SPRINT 5 "Estadísticas":
+
+- Calcular tareas realizadas durante el día. []
+- Calcular tareas pendientes. []
+- Mostrar actividad semanal real. []
+- Calcular progreso de los objetivos. []
+- Definir la fórmula de rendimiento general. []
+- Mostrar estados vacíos cuando no existen datos suficientes. []
+- Reemplazar los textos simulados de lectura rápida. []

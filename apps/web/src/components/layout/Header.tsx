@@ -29,7 +29,6 @@ function Header({ activeView, onChangeView }: HeaderProps) {
   return (
     <header className="flex items-center justify-between border-b border-zinc-800 pb-5">
       <div>
-        <p className="text-sm font-medium text-emerald-400">Flow Diario</p>
         <h1 className="text-xl font-semibold tracking-tight text-zinc-50">
           Task Rain
         </h1>

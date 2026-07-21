@@ -27,3 +27,106 @@ textarea,
 select {
   font: inherit;
 }
+
+@keyframes task-feedback-in {
+  from {
+    opacity: 0;
+    transform: translateY(-6px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes task-count-bump {
+  0% {
+    transform: scale(0.75);
+  }
+  55% {
+    transform: scale(1.2);
+  }
+  100% {
+    transform: scale(1);
+  }
+}
+
+@keyframes organizer-highlight {
+  0% {
+    background-color: rgb(52 211 153 / 0.14);
+    box-shadow: 0 0 0 1px rgb(52 211 153 / 0.35);
+  }
+  100% {
+    background-color: rgb(24 24 27 / 0.6);
+    box-shadow: 0 0 0 0 rgb(52 211 153 / 0);
+  }
+}
+
+@keyframes task-card-enter {
+  from {
+    opacity: 0;
+    transform: translateY(-8px);
+    border-color: rgb(52 211 153 / 0.7);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+    border-color: rgb(39 39 42);
+  }
+}
+
+@keyframes task-spinner {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+@keyframes task-drop-target {
+  0%,
+  100% {
+    box-shadow: 0 0 0 1px rgb(52 211 153 / 0.2);
+  }
+  50% {
+    box-shadow: 0 0 0 4px rgb(52 211 153 / 0.12);
+  }
+}
+
+.task-feedback-enter {
+  animation: task-feedback-in 220ms ease-out;
+}
+
+.task-count-bump {
+  animation: task-count-bump 260ms ease-out;
+}
+
+.organizer-highlight {
+  animation: organizer-highlight 900ms ease-out;
+}
+
+.task-card-enter {
+  animation: task-card-enter 280ms ease-out;
+}
+
+.task-spinner {
+  animation: task-spinner 650ms linear infinite;
+}
+
+.task-card-dragging {
+  opacity: 0.45;
+  transform: scale(0.98);
+}
+
+.task-list-drop-target {
+  animation: task-drop-target 900ms ease-in-out infinite;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .task-feedback-enter,
+  .task-count-bump,
+  .organizer-highlight,
+  .task-card-enter,
+  .task-spinner,
+  .task-list-drop-target {
+    animation: none;
+  }
+}

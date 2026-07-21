@@ -1,34 +1,55 @@
-import type { Task } from "../../types/task";
+import type { DragEvent } from "react";
+import type { Task, TaskStatus } from "../../types/task";
 
 type TaskCardProps = {
   task: Task;
-  onMoveToImportant: (taskId: string) => void;
-  onMoveToToday: (taskId: string) => void;
-  onCompleteTask: (taskId: string) => void;
+  showCompletionControl: boolean;
+  isDragging: boolean;
+  onChangeStatus: (taskId: string, status: TaskStatus) => void;
+  onDragStart: (taskId: string) => void;
+  onDragEnd: () => void;
 };
 
 function TaskCard({
   task,
-  onMoveToImportant,
-  onMoveToToday,
-  onCompleteTask,
+  showCompletionControl,
+  isDragging,
+  onChangeStatus,
+  onDragStart,
+  onDragEnd,
 }: TaskCardProps) {
   const isCompleted = task.status === "completed";
   const isToday = task.status === "today";
 
+  function handleDragStart(event: DragEvent<HTMLElement>) {
+    event.dataTransfer.effectAllowed = "move";
+    event.dataTransfer.setData("text/plain", task.id);
+    onDragStart(task.id);
+  }
+
   return (
-    <article className="rounded-md border border-zinc-800 bg-zinc-950 p-4">
+    <article
+      draggable
+      onDragStart={handleDragStart}
+      onDragEnd={onDragEnd}
+      className={`task-card-enter cursor-grab rounded-md border border-zinc-800 bg-zinc-950 p-4 transition active:cursor-grabbing ${
+        isDragging ? "task-card-dragging" : ""
+      }`}
+    >
       <div className="flex items-start gap-3">
-        {isToday || isCompleted ? (
+        {showCompletionControl && (isToday || isCompleted) ? (
           <input
             type="checkbox"
             checked={isCompleted}
-            onChange={() => onCompleteTask(task.id)}
+            onChange={() =>
+              onChangeStatus(task.id, isCompleted ? "today" : "completed")
+            }
             className="mt-1 size-4 rounded border-zinc-700 bg-zinc-900 accent-emerald-400"
           />
         ) : null}
 
-        <div className="flex-1">
+        <div className="min-w-0 flex-1">
+          <div className="flex items-start justify-between gap-3">
           <p
             className={
               isCompleted
@@ -38,28 +59,15 @@ function TaskCard({
           >
             {task.title}
           </p>
-
-          <div className="mt-3 flex flex-wrap gap-2">
-            {task.status === "brain_dump" ? (
-              <button
-                type="button"
-                onClick={() => onMoveToImportant(task.id)}
-                className="rounded-md border border-zinc-700 px-3 py-1 text-xs font-medium text-zinc-300 transition hover:border-emerald-400 hover:text-emerald-300"
-              >
-                Marcar importante
-              </button>
-            ) : null}
-
-            {task.status === "important" ? (
-              <button
-                type="button"
-                onClick={() => onMoveToToday(task.id)}
-                className="rounded-md border border-zinc-700 px-3 py-1 text-xs font-medium text-zinc-300 transition hover:border-emerald-400 hover:text-emerald-300"
-              >
-                Pasar a hoy
-              </button>
-            ) : null}
+            <span
+              className="select-none text-base leading-none text-zinc-600"
+              title="Arrastrar tarea"
+              aria-hidden="true"
+            >
+              ⠿
+            </span>
           </div>
+
         </div>
       </div>
     </article>
