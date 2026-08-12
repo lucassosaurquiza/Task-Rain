@@ -1,3 +1,4 @@
+import { useLocalStorageState } from "../hooks/useLocalStorageState";
 import { useState } from "react";
 import HomeDashboard from "../components/dashboard/HomeDashboard";
 import AppShell from "../components/layout/AppShell";
@@ -20,7 +21,10 @@ function createTask(title: string): Task {
 
 function App() {
   const [activeView, setActiveView] = useState<AppView>("home");
-  const [tasks, setTasks] = useState<Task[]>(mockTasks);
+  const [tasks, setTasks] = useLocalStorageState<Task[]>(
+    "task-rain:tasks",
+    mockTasks,
+  );
 
   const unorganizedTaskCount = tasks.filter(
     (task) => task.status === "brain_dump",
