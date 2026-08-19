@@ -1,5 +1,6 @@
 import { useLocalStorageState } from "../hooks/useLocalStorageState";
 import { useState } from "react";
+import { isTaskArray } from "../utils/taskGuards";
 import HomeDashboard from "../components/dashboard/HomeDashboard";
 import AppShell from "../components/layout/AppShell";
 import Header from "../components/layout/Header";
@@ -24,6 +25,7 @@ function App() {
   const [tasks, setTasks] = useLocalStorageState<Task[]>(
     "task-rain:tasks",
     mockTasks,
+    isTaskArray,
   );
 
   const unorganizedTaskCount = tasks.filter(

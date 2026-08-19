@@ -1,6 +1,12 @@
 import { useEffect, useState } from "react";
 
-export function useLocalStorageState<T>(key: string, initialValue: T) {
+type LocalStorageValidator<T> = (value: unknown) => value is T;
+
+export function useLocalStorageState<T>(
+  key: string,
+  initialValue: T,
+  validate?: LocalStorageValidator<T>,
+) {
   const [state, setState] = useState<T>(() => {
     const storedValue = window.localStorage.getItem(key);
 
@@ -9,7 +15,13 @@ export function useLocalStorageState<T>(key: string, initialValue: T) {
     }
 
     try {
-      return JSON.parse(storedValue) as T;
+      const parsedValue: unknown = JSON.parse(storedValue);
+
+      if (validate && !validate(parsedValue)) {
+        return initialValue;
+      }
+
+      return parsedValue as T;
     } catch {
       return initialValue;
     }
