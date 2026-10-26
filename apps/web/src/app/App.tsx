@@ -1,13 +1,14 @@
 import { useLocalStorageState } from "../hooks/useLocalStorageState";
 import { useState } from "react";
 import { isTaskArray } from "../utils/taskGuards";
-import HomeDashboard from "../components/dashboard/HomeDashboard";
 import AppShell from "../components/layout/AppShell";
 import Header from "../components/layout/Header";
 import ObjectivesPage from "../components/objectives/ObjectivesPage";
 import TasksPage from "../components/tasks/TasksPage";
 import { mockTasks } from "../data/mockTasks";
 import type { Task, TaskStatus } from "../types/task";
+import HomeDashboard from "../components/dashboard/HomeDashboard";
+import { mockDashboardStats } from "../data/mockDashboard";
 
 type AppView = "home" | "tasks" | "objectives";
 
@@ -69,6 +70,7 @@ function App() {
 
       {activeView === "home" ? (
         <HomeDashboard
+          dashboardStats={mockDashboardStats}
           unorganizedTaskCount={unorganizedTaskCount}
           onCreateTask={handleCreateTask}
           onUndoCreateTask={handleUndoCreateTask}
