@@ -28,7 +28,12 @@ const navItems: NavItem[] = [
 function Header({ activeView, onChangeView }: HeaderProps) {
   return (
     <header className="flex items-center justify-between border-b border-zinc-800 pb-5">
-      <div>
+      <div className="flex ">
+        <img
+          className="h-10 w-10 align-middle"
+          src="./task-rain-favicon.png"
+          alt=""
+        />
         <h1 className="text-xl font-semibold tracking-tight text-zinc-50">
           Task Rain
         </h1>
