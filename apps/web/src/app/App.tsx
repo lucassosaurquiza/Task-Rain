@@ -1,11 +1,14 @@
+import { useLocalStorageState } from "../hooks/useLocalStorageState";
 import { useState } from "react";
-import HomeDashboard from "../components/dashboard/HomeDashboard";
+import { isTaskArray } from "../utils/taskGuards";
 import AppShell from "../components/layout/AppShell";
 import Header from "../components/layout/Header";
 import ObjectivesPage from "../components/objectives/ObjectivesPage";
 import TasksPage from "../components/tasks/TasksPage";
 import { mockTasks } from "../data/mockTasks";
 import type { Task, TaskStatus } from "../types/task";
+import HomeDashboard from "../components/dashboard/HomeDashboard";
+import { mockDashboardStats } from "../data/mockDashboard";
 
 type AppView = "home" | "tasks" | "objectives";
 
@@ -20,7 +23,11 @@ function createTask(title: string): Task {
 
 function App() {
   const [activeView, setActiveView] = useState<AppView>("home");
-  const [tasks, setTasks] = useState<Task[]>(mockTasks);
+  const [tasks, setTasks] = useLocalStorageState<Task[]>(
+    "task-rain:tasks",
+    mockTasks,
+    isTaskArray,
+  );
 
   const unorganizedTaskCount = tasks.filter(
     (task) => task.status === "brain_dump",
@@ -63,6 +70,7 @@ function App() {
 
       {activeView === "home" ? (
         <HomeDashboard
+          dashboardStats={mockDashboardStats}
           unorganizedTaskCount={unorganizedTaskCount}
           onCreateTask={handleCreateTask}
           onUndoCreateTask={handleUndoCreateTask}
