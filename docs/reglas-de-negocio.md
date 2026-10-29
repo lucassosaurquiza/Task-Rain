@@ -6,263 +6,206 @@ Fuente central de reglas para producto, funcionalidades y arquitectura.
 
 - Tarea: actividad capturada en la aplicación.
 - Registro: creación de una tarea en la lluvia.
-- Compromiso diario: tarea elegida para Hoy, asociada a una fecha.
+- Compromiso semanal: tarea elegida para Hoy, asociada a una fecha.
 - Cumplimiento: resultado de ese compromiso durante esa fecha.
 - Objetivo: meta que se quiere alcanzar; su criterio de logro está pendiente.
 - Racha: sucesión de días consecutivos que cumplen una condición.
 
-Una tarea y su compromiso diario no son el mismo registro.
+Una tarea y su compromiso semanal no son el mismo registro.
 
-## R01 — Captura y constancia de registro
+## R01 — Captura y filtrado
 
-Estado: aceptado.
+Estado: aceptado según D08.
 
-- Se pueden crear tareas durante el día, sin obligación de hacerlo temprano.
-- Crear al menos una tarea en la lluvia cuenta como día con registro.
-- Crear varias tareas el mismo día sigue contando como un solo día.
-- Abrir la aplicación, editar o completar tareas no equivale a crearlas.
-- Un día terminado sin nuevas tareas cuenta negativamente para el registro.
-- Las tareas de la lluvia no entran en el denominador del cumplimiento.
-- Completar tareas antiguas puede dar buen cumplimiento sin registro nuevo.
-- Crear muchas tareas puede dar registro positivo sin buen cumplimiento.
+- El usuario puede crear tareas en cualquier momento.
+- Lluvia e Importantes sirven para capturar y priorizar.
+- Crear, editar o mantener tareas en esas columnas
+  no genera estadísticas ni penalizaciones.
+- La evaluación comienza cuando una tarea se incorpora
+  a Hoy, vinculada a un objetivo en curso.
 
-Debe conservarse evidencia del registro por fecha para que quitar
-una tarea de la interfaz no borre automáticamente la actividad pasada.
-El tratamiento de creaciones por error está pendiente en P03.
+## R02 — Días sin nuevas tareas
 
-## R02 — Colores de constancia semanal
+Estado: aceptado según D08.
 
-Estado: aceptado para una semana completa.
+- No incorporar tareas un día no genera una penalización diaria.
+- Las pendientes de Hoy continúan disponibles durante
+  los siguientes días de la misma semana.
+- Cada tarea cuenta una sola vez en el total semanal.
+- Los antiguos colores según días de registro ya no se aplican.
+- Una semana cerrada sin compromisos se clasifica como negativa.
 
-| Días con registro | Color |
-| --- | --- |
-| 0 a 3 | Rojo |
-| 4 a 5 | Amarillo |
-| 6 a 7 | Verde |
+## R03 — Incorporación a Hoy y compromiso semanal
 
-Estos rangos cuentan días, no tareas ni días necesariamente consecutivos.
-Registrar lunes, miércoles, viernes y domingo suma cuatro días;
-no implica una racha de cuatro días.
+Estado: aceptado según D08.
 
-Propuesta de presentación: durante la semana mostrar el acumulado
-como provisional y no etiquetar días futuros como perdidos.
-El comienzo de semana y el tratamiento de semanas parciales están en P05.
-Estos rangos no se extrapolan automáticamente a un mes.
+- El recorrido es Lluvia → Importantes → Hoy.
+- Lluvia e Importantes no generan estadísticas ni penalizaciones.
+- Para incorporar una tarea a Hoy debe elegirse un objetivo
+  en curso y confirmarse la acción.
+- Sin objetivos en curso no se puede incorporar una tarea a Hoy.
+- Cancelar antes de confirmar no genera un compromiso.
+- El compromiso conserva el objetivo elegido al incorporarse.
+- Cada combinación tarea + semana puede existir una sola vez.
+- Las pendientes permanecen en Hoy durante los días siguientes
+  de esa misma semana, sin generar compromisos adicionales.
+- Completar el martes una tarea incorporada el lunes cuenta
+  como cumplimiento de esa semana.
+- Retirar una tarea no elimina su compromiso ni reduce
+  el total utilizado para calcular el cumplimiento.
+- Al cierre, las incompletas vuelven a Importantes.
+- Solo ingresan en la semana siguiente si el usuario vuelve
+  a pasarlas a Hoy.
+- Completar después del cierre no modifica la semana cerrada.
 
-## R03 — Compromisos de Hoy
-
-Estado: aceptado.
-
-- Pasar una tarea a Hoy genera un compromiso para esa fecha.
-- La identidad del compromiso es la combinación tarea + fecha.
-- Agregar varias veces la misma tarea el mismo día no lo duplica.
-- Quitar o posponer una tarea no elimina su compromiso original.
-- Si se vuelve a agregar y se completa ese día, puede quedar cumplido.
-- Si se completa en una fecha posterior, no cumple retroactivamente
-  el compromiso anterior.
-- Elegirla para Hoy en una fecha posterior genera otro compromiso.
-- Una tarea capturada pero nunca elegida para Hoy no genera incumplimiento.
-
-El resultado durante el día es provisional.
-No completar un compromiso al cierre lo deja incumplido.
-La corrección de errores y la reapertura requieren las reglas P02 y P03.
-
-## R04 — Porcentaje diario
+## R04 — Cumplimiento semanal
 
 Estado: aceptado cuando existe al menos un compromiso.
 
-C = compromisos de la fecha cumplidos durante esa misma fecha.
-T = total de compromisos adquiridos para esa fecha.
+T = total de tareas distintas incorporadas a Hoy en esa semana.
+C = tareas de ese conjunto completadas antes del cierre semanal.
 
-Cumplimiento diario = C / T × 100.
+Cumplimiento semanal = C / T × 100.
 
-- Los compromisos retirados permanecen dentro de T.
-- Los compromisos incumplidos reducen el porcentaje.
-- No hay un descuento adicional de puntos por cada tarea incumplida.
-- Se muestran porcentaje y cantidades para dar contexto.
-- No se pondera por dificultad o duración.
-- Si T es cero, no se divide por cero: el porcentaje no está definido.
-  Su efecto en la racha y presentación está pendiente en P01.
-- Completar tareas sin compromiso puede contarse como actividad,
-  pero no aumenta C ni genera un compromiso retroactivo automáticamente.
+- Las tareas incompletas permanecen dentro de T.
+- Retirar una tarea no elimina su compromiso ni reduce T.
+- Arrastrar una pendiente entre días no aumenta T.
+- No se promedian porcentajes diarios.
+- No se aplica un descuento adicional por cada día pendiente.
+- La actividad se guarda durante la semana.
+- El resultado oficial se publica al cierre.
+- Si T es cero, no se realiza la división.
+- Si al cierre semanal T es cero, la semana se clasifica
+  como negativa por falta de planificación.
+- No se realiza la división C / T, porque T es cero.
+- La ausencia de compromisos no elimina esa semana
+  del historial estadístico.
+- Esta evaluación ocurre al cierre, no durante la semana abierta.
 
-| T | C | Porcentaje | Alcanza el umbral de racha |
-| --- | --- | --- | --- |
-| 20 | 16 | 80% | Sí |
-| 20 | 15 | 75% | No |
-| 3 | 3 | 100% | Sí |
-| 3 | 2 | 66,67% | No |
-| 5 | 4 | 80% | Sí |
-| 5 | 3 | 60% | No |
+Ejemplo: diez tareas comprometidas y ocho completadas
+producen un cumplimiento semanal del 80%.
 
-Si se planifican cinco, se completan tres y se retiran dos,
-el resultado es 3/5, no 3/3.
+## R05 — Clasificación semanal
 
-## R05 — Clasificación del día
+Estado: parcialmente definido.
 
-El usuario definió día malo, día más o menos y día fabuloso.
-El umbral de 80% para una racha está aceptado.
+- La clasificación oficial se determina al cierre semanal.
+- Una semana sin compromisos es negativa por falta de planificación.
+- Con compromisos, el porcentaje se calcula según R04.
+- Los rangos y nombres de las clasificaciones están pendientes.
+- El mínimo semanal de tareas también está pendiente.
+- Los antiguos rangos diarios no se aplican automáticamente
+  a la clasificación semanal.
 
-Interpretación continua propuesta para cubrir todos los porcentajes:
+## R06 — Racha
 
-| Resultado | Intervalo propuesto |
-| --- | --- |
-| Día malo | 0% <= resultado < 50% |
-| Día más o menos | 50% <= resultado < 80% |
-| Día fabuloso | 80% <= resultado <= 100% |
+Estado: pendiente de redefinición.
 
-Los límites intermedios y sus etiquetas deben confirmarse (P09).
-No inventar categorías para 45%, 75% o un día sin compromisos.
+- La antigua racha de días consecutivos queda sin efecto.
+- Un día sin nuevas tareas no interrumpe una racha diaria,
+  porque ese mecanismo ya no se utiliza.
+- Se propone medir semanas consecutivas con resultado positivo.
+- Antes de implementarla, deben aprobarse las condiciones
+  de una semana positiva y el efecto de una semana negativa.
+- No se otorgan premios ni se reinicia un contador
+  usando reglas todavía pendientes.
 
-## R06 — Racha de cumplimiento
+## R07 — Cierre semanal e historial
 
-Estado: aceptado el umbral y el uso de días consecutivos.
+Estado: aceptado; zona horaria pendiente de definición.
 
-- Un día terminado con al menos 80% alcanza la condición de cumplimiento.
-- No se exige una cantidad fija de tareas.
-- Un día terminado con compromisos y menos de 80% interrumpe
-  la sucesión de días que alcanzaron el umbral.
-- Evaluar el porcentaje real antes de redondearlo para presentación.
-- Puede compararse C × 100 >= T × 80 cuando T > 0.
-- Un 79,6% no alcanza el umbral aunque la interfaz lo redondee a 80%.
-- La constancia de registro no reemplaza esta condición.
-- No completar el día actual todavía no equivale a un día perdido.
+- La semana comienza el lunes a las 00:00, incluido.
+- Termina el lunes siguiente a las 00:00, excluido.
+- Una acción realizada exactamente en el límite pertenece
+  a la nueva semana.
 
-Propuesta: mostrar racha confirmada hasta el último día cerrado
-y avance provisional del día actual.
-No otorgar repetidamente el mismo día por entrar varias veces.
+Al cerrar:
 
-La racha definida es de cumplimiento diario global.
-Una racha por objetivo y una racha adicional de registro
-no se consideran aprobadas automáticamente (P06).
+1. Identificar los compromisos de la semana.
+2. Calcular el resultado según R04 y R05.
+3. Guardar el resultado y el detalle histórico.
+4. Devolver las tareas incompletas a Importantes.
+5. Retirar de Hoy las completadas, conservando su historial.
+6. Dejar Hoy vacío para la nueva semana.
 
-## R07 — Cierre e historial
+- Las pendientes no se incorporan automáticamente
+  a los compromisos de la semana siguiente.
+- Completar una tarea después no modifica la semana cerrada.
+- El cierre debe funcionar aunque la aplicación esté apagada.
+- Procesar nuevamente el mismo cierre no debe duplicar
+  resultados ni retirar tareas incorporadas a la nueva semana.
+- Las correcciones de resultados cerrados requieren
+  una política específica, todavía pendiente.
 
-Aceptado:
-- Quitar o posponer no borra el compromiso.
-- Completar mañana no mejora retroactivamente el resultado de hoy.
-- Las consultas históricas requieren conservar compromisos por fecha.
+  ## R08 — Estadísticas por período
 
-Propuesta técnica de calendario:
-- Inicio incluido: 00:00 de una fecha.
-- Final excluido: 00:00 de la fecha siguiente.
-- El instante exacto de medianoche pertenece al nuevo día.
-- No usar 00:01 como inicio: dejaría un minuto fuera del cálculo.
-- Utilizar una zona horaria definida y conservar la fecha asignada.
+- La actividad se registra durante la semana.
+- El resultado oficial semanal se publica al cierre, según R04 y R07.
+- Consultar actividad de un día no genera una evaluación diaria.
+- No se utilizan días de registro para puntuar el cumplimiento.
+- Los cálculos y cierres mensuales y anuales siguen pendientes.
+- Debe definirse cómo agrupar semanas que atraviesan dos meses.
+- El cumplimiento de tareas no equivale automáticamente
+  al logro de un objetivo.
 
-El ajuste del horario y la política de zona horaria se confirman en P05.
-El resultado no debe depender de tener la aplicación abierta al cierre.
-Puede calcularse al reabrir a partir de los registros persistidos.
+## R09 — Objetivos, reconocimientos y resultados negativos
 
-No reinterpretar automáticamente el historial al viajar o cambiar
-la zona horaria del dispositivo.
+- Para incorporar una tarea a Hoy se requiere un objetivo en curso.
+- El compromiso conserva el objetivo elegido al incorporarse.
+- Las tareas incumplidas permanecen en el total semanal.
+- Una semana cerrada sin compromisos es negativa.
+- No se aplican penalizaciones por días sin nuevas tareas.
+- No se descuentan puntos adicionales por cada tarea incumplida.
+- Los reconocimientos y las condiciones de racha siguen pendientes.
+- No se otorgan premios automáticamente por completar tareas
+  sin una regla de logro aprobada.
 
-## R08 — Estadísticas por período
+## Decisiones pendientes y resueltas
 
-Estado: aceptadas las consultas por día, semana y mes.
+### P01 — Semana sin compromisos
 
-Cada consulta debe indicar período, fechas y si está en curso.
-Separar:
-- Días con registro.
-- Cumplimiento de compromisos diarios.
-- Racha de cumplimiento.
-- Avance de objetivos cuando su regla esté definida.
-
-La fórmula diaria no define por sí sola el porcentaje semanal o mensual.
-No mezclar tareas completadas por fecha de finalización con pendientes
-de otro conjunto para formar un porcentaje.
-
-La agregación semanal y mensual está pendiente en P04.
-Los colores semanales de R02 no constituyen una fórmula mensual.
-
-## R09 — Objetivos, premios y penalizaciones
-
-Aceptado como requisito de producto:
-- Incentivar el avance hacia objetivos.
-- Reconocer los objetivos logrados.
-- Mostrar constancia mediante días de cumplimiento.
-- Reflejar negativamente falta de registro e incumplimiento.
-
-Ya definidos:
-- Sin registro al cierre: día sin registro para R01/R02.
-- Compromisos incumplidos: menor porcentaje para R04.
-- Porcentaje inferior al umbral: no alcanza R06.
-
-No aprobados:
-- Pérdida de puntos, vidas o recompensas acumuladas.
-- Umbral adicional de varios días con un castigo extra.
-- Premios concretos, niveles o monedas.
-- Que completar cualquier tarea equivalga a lograr un objetivo.
-
-Se necesita definir el vínculo entre tareas, metas y premios (P06).
-
-## Decisiones pendientes
-
-### P01 — Día sin compromisos
-
-Propuesta: mostrar "Sin planificación", sin porcentaje, e interrumpir
-la racha al cerrar ese día. Pendiente de aprobación.
-No asumir descansos, pausas ni excepciones automáticas.
+Resuelto: es negativa y permanece en el historial.
+No se divide por cero. Falta definir su presentación numérica
+y su efecto en agregaciones y rachas.
 
 ### P02 — Reabrir una tarea
 
-Definir qué ocurre si se completa y reabre durante el mismo día
-o después del cierre. Propuesta: antes del cierre revertir el cumplimiento;
-después del cierre tratar una corrección explícita por separado.
-No permitir que completar/reabrir otorgue recompensas duplicadas.
+Definir el efecto de reabrir antes del cierre semanal.
+Después del cierre, no cambiar automáticamente el resultado histórico.
 
 ### P03 — Errores y eliminación
 
-Definir correcciones de creación o planificación por error.
-La eliminación ordinaria no debe borrar compromisos incumplidos.
-Propuesta técnica: archivar la tarea o preservar sus referencias
-históricas, en lugar de borrar en cascada.
-Decidir el efecto de una corrección sobre rachas y premios.
+Definir correcciones y eliminación sin borrar compromisos históricos.
+Establecer cómo autorizar y registrar correcciones de semanas cerradas.
 
-### P04 — Agregación semanal y mensual
+### P04 — Agregación mensual y anual
 
-Elegir entre porcentaje de compromisos cumplidos del período
-y promedio de porcentajes diarios. No son equivalentes.
+La fórmula semanal está resuelta en R04.
+Definir fórmulas mensuales y anuales, semanas entre meses
+y tratamiento de semanas negativas sin compromisos.
 
-Ejemplo: un día 1/1 y otro 0/9:
-- Por compromisos: 1/10 = 10%.
-- Promedio de días: (100% + 0%)/2 = 50%.
+### P05 — Calendario
 
-Propuesta: mostrar el porcentaje de compromisos del período y,
-por separado, cuántos días alcanzaron 80%.
-No presentarlo como decisión aceptada.
-
-### P05 — Calendario y períodos parciales
-
-Confirmar 00:00 incluido hasta 00:00 siguiente excluido,
-zona horaria de referencia, lunes a domingo para la semana,
-mes calendario y tratamiento de la primera semana incompleta.
-No evaluar fechas anteriores al comienzo del seguimiento como fallos.
+El límite semanal está resuelto en R07.
+Definir zona horaria, inicio del seguimiento y semanas parciales.
 
 ### P06 — Objetivos y reconocimientos
 
-Definir:
-- Qué significa lograr un objetivo y qué evidencia lo confirma.
-- Si una tarea puede asociarse a uno o varios objetivos.
-- Cómo se calcula el avance.
-- Qué reconocimiento se obtiene y cuándo se entrega.
-- Si se necesita una racha por objetivo además de la global.
+Definir el criterio de logro, progreso y recompensas.
+Establecer qué ocurre si un objetivo se logra o archiva
+mientras todavía tiene tareas comprometidas pendientes.
 
 ### P07 — Captura de varias tareas
 
-Confirmar carga consecutiva con Enter, una tarea por línea
-u otra interacción. No dividir texto arbitrariamente.
-También decidir si desde la captura se puede crear y pasar a Hoy
-en una sola acción explícita.
+Definir la interacción de carga múltiple.
+La captura no incorpora tareas automáticamente a Hoy.
 
 ### P08 — Importantes
 
-Confirmar si se conserva esta clasificación del diseño original.
-Si se conserva, proponer importancia independiente de planificación
-y finalización, sin imponer el paso por Importantes.
+Resuelto: forma parte del recorrido Lluvia → Importantes → Hoy.
+Las incompletas vuelven a Importantes al cierre semanal.
 
-### P09 — Clasificaciones y penalización adicional
+### P09 — Clasificación y racha
 
-Confirmar los intervalos continuos de R05.
-Aclarar si el resultado negativo y la interrupción de la racha
-satisfacen la penalización deseada o se requiere otro mecanismo.
+Definir mínimo semanal, rangos de clasificación y condiciones de racha.
+No trasladar automáticamente los antiguos umbrales diarios.

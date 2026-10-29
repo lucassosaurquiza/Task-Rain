@@ -42,7 +42,7 @@ El estado actual no permite reconstruir ese resultado de forma confiable.
 
 ## D03 — Separar registro y cumplimiento
 
-Estado: aceptada.
+Estado: reemplazada por D08.
 
 ### Decisión
 
@@ -77,7 +77,7 @@ que todavía no fueron acordados. Ver P04, P06 y P07.
 
 ## D05 — Conservar compromisos diarios
 
-Estado: aceptada como regla de dominio.
+Estado: reemplazada por D08.
 
 ### Decisión
 
@@ -100,7 +100,7 @@ hasta resolver P02 y P03.
 
 ## D06 — Racha basada en cumplimiento porcentual
 
-Estado: aceptada.
+Estado: reemplazada por D08.
 
 ### Decisión
 
@@ -135,6 +135,58 @@ y reduce el porcentaje. No se agrega otra resta por ese compromiso.
 Cinco compromisos, tres cumplidos y dos retirados producen 60%.
 Una penalización adicional por varios días sin actividad no se inventa;
 su alcance se debe resolver en P09.
+
+## D08 — Evaluar el cumplimiento al cierre semanal
+
+Estado: aceptada.
+
+### Contexto
+
+El usuario puede distribuir su trabajo durante la semana.
+No necesita registrar ni completar tareas todos los días.
+
+### Decisión
+
+- Lluvia e Importantes sirven para capturar y filtrar.
+  No generan estadísticas ni penalizaciones.
+- Para pasar una tarea a Hoy debe asignarse a un objetivo
+  en curso y confirmarse la planificación.
+- Cada tarea cuenta una sola vez dentro de la misma semana.
+- Las tareas pendientes permanecen en Hoy al cambiar de día,
+  sin duplicarse ni generar incumplimientos diarios adicionales.
+- La semana comienza el lunes a las 00:00, incluido,
+  y termina el lunes siguiente a las 00:00, excluido.
+- Durante la semana se guarda la actividad.
+  La estadística oficial se publica al cierre.
+
+### Cálculo
+
+Cumplimiento semanal =
+tareas incorporadas a Hoy durante esa semana y completadas
+antes del cierre / total de tareas incorporadas × 100.
+
+Las incompletas permanecen en el denominador.
+
+### Cierre
+
+1. Guardar el resultado y el detalle de la semana.
+2. Devolver las tareas incompletas a Importantes.
+3. Retirar de Hoy las completadas, conservando su historial.
+4. Comenzar la nueva semana con Hoy vacío.
+
+Una tarea pendiente solo cuenta en la nueva semana
+si el usuario vuelve a pasarla a Hoy.
+
+Completarla después no modifica la semana cerrada.
+
+### Pendientes
+
+- Resultado de una semana sin tareas.
+- Mínimo semanal: tres o cuatro tareas.
+- Condiciones de racha y clasificación semanal.
+- Zona horaria utilizada para los cierres.
+- Agregación mensual y anual.
+- Correcciones de resultados cerrados.
 
 ## Propuestas técnicas por evaluar
 
