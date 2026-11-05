@@ -14,6 +14,7 @@ La referencia son los requisitos y las decisiones confirmadas por el usuario.
 4. [Arquitectura](arquitectura.md): estructura actual y diseño técnico propuesto.
 5. [Decisiones](decisiones.md): decisiones aceptadas y propuestas reemplazadas.
 6. [Aprendizaje](aprendizaje.md): registro personal de lo aprendido.
+7. [Pruebas de API](pruebas-api.md): preparacion y ejecucion de tests.
 
 Las fórmulas y los umbrales se mantienen en reglas-de-negocio.md.
 Los otros documentos los referencian para evitar versiones contradictorias.
@@ -45,6 +46,7 @@ estadísticas o motivación del producto.
 ## Uso de la documentación
 
 Antes de desarrollar una función:
+
 - Identificar la regla que implementa.
 - Resolver sus decisiones pendientes.
 - Escribir o ejecutar los casos de aceptación correspondientes.
