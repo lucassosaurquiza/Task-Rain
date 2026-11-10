@@ -56,7 +56,12 @@ Referencias:
   Si se envía, debe ser una fecha real YYYY-MM-DD entre 0001 y 9999.
   Se rechazan texto vacío, espacios y fecha con hora. No se prohíben fechas pasadas.
 - validation/date.ts contiene isValidDateOnly, independiente de HTTP y SQL.
-  La ruta valida el tipo y la ausencia antes de consultar esta función.
+- validation/objective.ts contiene validateCreateObjective: recibe unknown,
+  valida y normaliza los campos, y consulta el validador de fechas.
+  Devuelve { ok: true, data } o { ok: false, error }, sin modificar la entrada.
+- POST /objectives utiliza ese resultado: responde 400 ante error o guarda
+  data mediante SQL y responde 201. HTTP y persistencia siguen en la ruta;
+  la validación ya es independiente de Express y PostgreSQL.
 - El estado enviado por el cliente se ignora; la creación usa in_progress.
 - Los alias SQL devuelven successCriterion, targetDate y createdAt.
   targetDate se representa como YYYY-MM-DD o null, sin convertirlo en instante.
@@ -68,7 +73,8 @@ Referencias:
 - Node Test Runner y Supertest.
 - Base separada task_rain_test.
 - 23 pruebas de integración de salud, tareas, importancia y objetivos.
-- 3 pruebas unitarias del calendario, ejecutables sin PostgreSQL con test:unit.
+- 6 pruebas unitarias de calendario y validación de objetivos,
+  ejecutables sin PostgreSQL con test:unit.
 - Preparación y ejecución documentadas en pruebas-api.md.
 
 Los datos del frontend y del backend siguen separados.
@@ -263,7 +269,7 @@ Las credenciales permanecen fuera de Git.
 ## Verificación
 
 La última ejecución verificada, el 10 de noviembre de 2026,
-aprobó las 26 pruebas existentes: 23 de integración y 3 unitarias.
+aprobó las 29 pruebas existentes: 23 de integración y 6 unitarias.
 Consultar pruebas-api.md para su alcance y ejecución.
 
 Pruebas pendientes del modelo semanal:

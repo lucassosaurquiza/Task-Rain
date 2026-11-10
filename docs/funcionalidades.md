@@ -13,7 +13,8 @@ Referencia de la implementación actual:
 - La API permite crear y listar tareas, editar títulos y cambiar importancia.
 - La API permite crear y listar objetivos con sus campos obligatorios y opcionales.
 - El frontend todavía no consume la API.
-- Existen 26 pruebas automatizadas: 23 de integración y 3 unitarias del calendario.
+- Existen 29 pruebas automatizadas: 23 de integración y 6 unitarias
+  de calendario y validación de objetivos.
 - Los compromisos semanales y cierres no están
   implementados en el backend.
 - La pantalla de objetivos y el dashboard todavía no representan

@@ -62,18 +62,18 @@ npm test -w apps/api
 
 No hace falta iniciar Express: Supertest administra un servidor temporal.
 
-Para ejecutar únicamente las pruebas del calendario, sin PostgreSQL
+Para ejecutar únicamente las pruebas de calendario y validación de objetivos, sin PostgreSQL
 ni archivo de entorno:
 
 ```bash
 npm run test:unit -w apps/api
 ```
 
-La suite completa ejecuta app.test.ts y date.test.ts.
+La suite completa ejecuta app.test.ts, date.test.ts y objective-validation.test.ts.
 
 ## Cobertura actual
 
-La suite contiene 26 pruebas: 23 de integración y 3 unitarias del calendario.
+La suite contiene 29 pruebas: 23 de integración y 6 unitarias.
 
 - GET /health responde 200 con status ok.
 - POST /tasks rechaza títulos compuestos por espacios.
@@ -120,7 +120,18 @@ Cobertura adicional de campos opcionales:
 - Las tres pruebas unitarias comprueban fechas reales, días inexistentes
   y formatos incorrectos, incluidos años bisiestos y límites 0001/9999.
 
-Última ejecución verificada: 10 de noviembre de 2026, 26 aprobadas,
+Las tres pruebas unitarias del validador de objetivos comprueban:
+
+- Normalización del resultado sin modificar el objeto de entrada.
+- Aceptación de weekly, monthly y yearly y opcionales ausentes en null.
+- Rechazo de entradas que no son objetos de datos.
+
+Estas pruebas llaman a validateCreateObjective directamente. Las pruebas
+de integración existentes también pasan por el validador desde la ruta.
+Aceptar períodos en una prueba unitaria no comprueba su persistencia;
+la creación válida por HTTP sigue cubierta con monthly.
+
+Última ejecución verificada: 10 de noviembre de 2026, 29 aprobadas,
 0 fallidas. Actualizar este resultado cuando cambie la suite.
 
 Antes de las pruebas de integración se verifica el entorno y la base real.
