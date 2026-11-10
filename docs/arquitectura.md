@@ -2,27 +2,77 @@
 
 ## Estado y alcance
 
-Diseño técnico propuesto para cumplir las reglas aceptadas.
-No describe todo como implementado ni fija un backend nuevo.
+Este documento distingue la implementación actual del diseño propuesto
+para cumplir las reglas aprobadas.
+
+El backend ya utiliza Express, TypeScript y PostgreSQL.
+La API permite crear y listar tareas, editar sus títulos e importancia,
+y crear y listar objetivos con sus campos obligatorios y opcionales.
+Los compromisos semanales y cierres todavía no están implementados.
 
 Referencias:
+
 - [Reglas de negocio](reglas-de-negocio.md).
 - [Decisiones](decisiones.md).
 - [Funcionalidades](funcionalidades.md).
 
 ## Base actual
 
-- Monorepo npm workspaces.
+- Monorepo con npm workspaces.
 - apps/web: React, TypeScript, Vite y Tailwind.
-- apps/api: espacio reservado para backend.
+- apps/api: Express y TypeScript, con PostgreSQL mediante pg.
 - packages/shared: espacio reservado para código compartido.
-- Estado de tareas coordinado desde App.
-- Persistencia mediante useLocalStorageState.
-- Dashboard alimentado con datos simulados.
 
-El Task actual usa status con brain_dump, important, today y completed.
-No existe todavía una colección de compromisos por fecha.
-El código no debe considerarse alineado solo porque cambió esta documentación.
+### Frontend
+
+- Las tareas siguen coordinadas desde App y guardadas en localStorage.
+- El frontend todavía no está conectado con la API.
+- El modelo Task usa brain_dump, important, today y completed.
+- Existen tipos de objetivos, semanas y compromisos semanales,
+  pero definir tipos no implementa su persistencia ni sus reglas.
+
+### Backend
+
+- app.ts configura Express y registra las rutas.
+- server.ts inicia el servidor HTTP.
+- db.ts configura el pool de conexiones.
+- GET /health comprueba que la API responde.
+- GET /tasks consulta las tareas guardadas.
+- POST /tasks valida el título y crea una tarea.
+- PATCH /tasks/:id valida el identificador y el título,
+  actualiza una tarea existente y conserva su fecha de creación.
+- PATCH /tasks/:id/importance recibe un booleano isImportant y conserva
+  título, identificador y fecha. Repetir el valor mantiene el resultado.
+- La tabla tasks contiene id, title, is_important y created_at.
+  is_important es obligatorio, comienza en false y se devuelve como isImportant.
+- GET /objectives lista objetivos por creación e identificador descendentes.
+- POST /objectives valida title, successCriterion y period; devuelve 201.
+  El período debe ser weekly, monthly o yearly. El estado inicial es in_progress.
+- La tabla objectives incluye id, title, success_criterion, period, status,
+  motivation, reward, target_date y created_at.
+- La creación persiste motivation y reward opcionales: recorta textos,
+  guarda null ante ausencia, null o texto vacío, y rechaza otros tipos.
+- targetDate es opcional: ausencia o null se guardan como null.
+  Si se envía, debe ser una fecha real YYYY-MM-DD entre 0001 y 9999.
+  Se rechazan texto vacío, espacios y fecha con hora. No se prohíben fechas pasadas.
+- validation/date.ts contiene isValidDateOnly, independiente de HTTP y SQL.
+  La ruta valida el tipo y la ausencia antes de consultar esta función.
+- El estado enviado por el cliente se ignora; la creación usa in_progress.
+- Los alias SQL devuelven successCriterion, targetDate y createdAt.
+  targetDate se representa como YYYY-MM-DD o null, sin convertirlo en instante.
+- Las migraciones 001 a 004 están versionadas y se aplican manualmente.
+- No hay autenticación ni separación de datos por usuario.
+
+### Pruebas
+
+- Node Test Runner y Supertest.
+- Base separada task_rain_test.
+- 23 pruebas de integración de salud, tareas, importancia y objetivos.
+- 3 pruebas unitarias del calendario, ejecutables sin PostgreSQL con test:unit.
+- Preparación y ejecución documentadas en pruebas-api.md.
+
+Los datos del frontend y del backend siguen separados.
+No existe sincronización ni migración automática entre ambos.
 
 ## Responsabilidades propuestas
 
@@ -35,168 +85,196 @@ El cálculo no debería depender de React ni leer directamente localStorage.
 Debe recibir registros y una referencia temporal explícita, lo que permite
 probarlo y reutilizarlo.
 
-Durante el MVP local estas responsabilidades pueden ejecutarse
-en el frontend. Con backend, el servidor deberá validar acciones
-y ser la fuente confiable de los resultados.
+El frontend actual conserva su funcionamiento local hasta su integración.
+Para las funciones conectadas, el backend validará las acciones y será
+la fuente confiable de los datos y resultados.
+La interfaz no decidirá por sí sola el cumplimiento ni el cierre semanal.
 
 No se necesita agregar microservicios ni infraestructura de eventos
 para conservar un historial mínimo.
 
 ## Modelo conceptual propuesto
 
-Los nombres siguientes son conceptuales; no son una migración aplicada.
+Las tablas tasks y objectives están implementadas en PostgreSQL.
+Sus asociaciones, semanas y compromisos describen el modelo previsto,
+no migraciones aplicadas.
 
 ### Tarea
 
-| Dato | Propósito |
-| --- | --- |
-| id | Identidad estable |
-| titulo | Texto validado |
-| creadaEn | Instante de creación |
-| completada | Estado actual |
-| completadaEn | Instante de la finalización actual, si existe |
-| archivadaEn | Posible alternativa a eliminación física, pendiente P03 |
+- Identidad estable, título y fecha de creación.
+- Importancia persistida mediante is_important; integración con las
+  columnas del frontend pendiente.
+- Posible objetivo asociado, opcional antes de incorporarse a Hoy.
+- Estado actual de finalización, cuyo diseño persistido falta definir.
 
-Importancia y asociación a objetivos dependen de P08 y P06.
-El estado actual no sustituye al historial diario.
+Crear o priorizar una tarea no genera estadísticas.
+La organización y la finalización son conceptos distintos.
+El estado actual de la tarea no sustituye al historial semanal.
+La eliminación y las reaperturas requieren resolver P02 y P03.
+
+### Objetivo
+
+- Identidad, título, criterio de logro, período y estado.
+- Período semanal, mensual o anual.
+- Motivación, recompensa y fecha objetivo opcionales.
+- Se prevé que tenga varias tareas y compromisos asociados;
+  las relaciones todavía no están implementadas.
+
+La creación y el listado básicos están implementados. Aunque la tabla
+admite los estados in_progress y achieved, no hay una ruta para cambiar
+el estado ni una regla implementada que determine el logro.
+
+Para incorporar una tarea a Hoy, el objetivo debe estar en curso.
+Completar tareas no equivale automáticamente a lograr el objetivo.
+Las reglas de logro y reconocimientos siguen pendientes según P06.
+
+### Semana
+
+- Identidad y límites temporales de inicio y fin.
+- Estado abierto o cerrado.
+- Fecha de cierre y totales del resultado cuando esté cerrada.
+- Mientras esté abierta, los campos del resultado cerrado son null.
+
+Una semana puede tener cero compromisos.
+Al cerrar sin compromisos, se clasifica como negativa.
+La zona horaria y el inicio del seguimiento dependen de P05.
+
+### Compromiso semanal
+
+- id: identidad del compromiso.
+- taskId: referencia obligatoria a la tarea.
+- objectiveId: referencia obligatoria al objetivo elegido.
+- weekId: referencia obligatoria a la semana.
+- addedAt: instante de incorporación.
+- completedAt: instante de cumplimiento, o null.
+- withdrawnAt: instante de retiro de Hoy, o null.
+
+Restricción propuesta en la base: UNIQUE (taskId, weekId).
+Cambiar de día dentro de la semana no crea otro compromiso.
+Retirar y reincorporar la tarea reutiliza el mismo compromiso.
+Retirarlo no reduce el total semanal ni elimina su historial.
+Cambiar el objetivo actual de una tarea no reasigna compromisos previos.
+La misma tarea puede tener compromisos en semanas distintas.
+Las reglas de reapertura y corrección dependen de P02 y P03.
 
 ### Registro de creación
 
-Evidencia mínima para la constancia:
-- Identificador de la operación.
-- Referencia a la tarea.
-- Instante y fecha local del registro.
-- Referencia de zona horaria según P05.
-
-Permite contar días con registro sin depender de tareas todavía visibles.
-La corrección de creaciones por error requiere P03.
-
-### Compromiso diario
-
-| Dato | Propósito |
-| --- | --- |
-| id | Identidad del compromiso |
-| tareaId | Tarea comprometida |
-| fecha | Día de compromiso |
-| comprometidaEn | Instante de incorporación |
-| retiradaDeHoy | Estado de presentación, no eliminación del compromiso |
-| cumplidaEn | Evidencia de cumplimiento para esa fecha, si existe |
-
-Restricción: una sola combinación tareaId + fecha.
-Retirar no elimina el registro ni reduce el denominador.
-Reincorporar en esa fecha reutiliza el mismo compromiso.
-
-La forma final de registrar reaperturas y correcciones depende de P02/P03.
-No implementar una actualización de cumplidaEn que reescriba historia
-sin resolver esas políticas.
-
-### Objetivo y reconocimiento
-
-Se necesitarán conceptos independientes de Tarea:
-- Objetivo con criterio explícito de logro.
-- Relación entre tareas y objetivos.
-- Evidencia de reconocimiento entregado.
-
-Los campos y cardinalidades se definen después de P06.
-Una racha global no se interpreta automáticamente como avance
-de todos los objetivos.
+No se requiere una entidad separada para puntuar días de registro:
+esa métrica fue reemplazada por el modelo semanal.
+La fecha de creación se conserva en la tarea.
+Una auditoría adicional se evaluará si aparece una necesidad concreta.
 
 ## Fechas y cierre
 
-Propuesta pendiente de P05:
-- Guardar instantes en ISO 8601 UTC.
-- Guardar la fecha del compromiso como YYYY-MM-DD.
-- Usar una zona horaria de referencia para asignar esa fecha.
-- Día como intervalo desde 00:00 incluido hasta 00:00 siguiente excluido.
-- Conservar la fecha histórica y evitar reagruparla automáticamente
-  según la zona horaria actual del dispositivo.
+Regla aprobada según R07:
 
-Obtener la fecha UTC recortando un instante no equivale siempre
-a obtener su fecha local.
-Un día de calendario tampoco debe suponerse siempre de 24 horas
-en zonas con cambios de horario.
+- La semana comienza el lunes a las 00:00, incluido.
+- Termina el lunes siguiente a las 00:00, excluido.
+- Una acción en ese límite pertenece a la nueva semana.
+- La zona horaria, el inicio del seguimiento y las semanas
+  parciales siguen pendientes según P05.
 
-El cálculo del día cerrado debe funcionar al volver a abrir la app.
-No exige un temporizador ejecutándose a medianoche.
-Un servicio programado puede evaluarse más adelante, si hace falta.
+Propuesta técnica:
+
+- Guardar instantes en PostgreSQL con TIMESTAMPTZ.
+- Intercambiar instantes con la API en formato ISO 8601 UTC.
+- Calcular los límites semanales usando la zona horaria acordada.
+- No asumir que la fecha UTC equivale a la fecha local.
+- Conservar los límites históricos de cada semana.
+
+La actividad se persiste durante la semana.
+El resultado oficial se publica al cierre, no diariamente.
+
+El cierre debe:
+
+1. Identificar los compromisos de la semana.
+2. Guardar el resultado y conservar el detalle histórico.
+3. Devolver las incompletas a Importantes.
+4. Retirar de Hoy las tareas de la semana cerrada.
+5. Conservar intactos los compromisos de la nueva semana.
+
+El proceso debe ser transaccional e idempotente:
+un fallo no debe dejar un cierre parcial, y repetirlo no debe
+duplicar resultados ni modificar otra semana.
+
+No debe depender de que el navegador esté abierto.
+La ejecución programada y la recuperación de cierres atrasados
+se definirán al implementar este proceso.
 
 ## Cálculos
 
-- Registro: contar fechas distintas de creación.
-- Cumplimiento diario: aplicar R04 a compromisos de una fecha.
-- Constancia semanal: aplicar R02 cuando el período esté definido.
-- Racha: recorrer fechas cerradas y aplicar R06.
-- Semana y mes: fórmula pendiente P04.
+- T: total de tareas distintas comprometidas en la semana.
+- C: tareas de ese conjunto completadas antes del cierre.
+- Si T > 0, cumplimiento semanal = C / T × 100.
+- Si T = 0, la semana cerrada es negativa y no se divide por cero.
+- Retirar una tarea no reduce T.
+- Cambiar de día no duplica compromisos ni agrega penalizaciones.
+- No se promedian porcentajes diarios.
+- Completar después del cierre no altera el resultado histórico.
 
-No guardar listas independientes de las mismas tareas para cada vista.
-Las vistas consultan tareas y compromisos persistidos.
+Los rangos de clasificación, el mínimo semanal y las rachas
+siguen pendientes. El 80% no es un umbral semanal aprobado.
+Los cálculos mensuales y anuales requieren resolver P04.
 
-Los resúmenes pueden derivarse del historial. Si se guardan por rendimiento,
-deben tener una política de reconstrucción y corrección;
-no convertirse en una segunda fuente contradictoria.
+Las vistas consultan tareas y compromisos; no mantienen copias
+independientes de las mismas tareas por columna.
 
-## Persistencia local propuesta
+## Persistencia y transición
 
-Mantener un esquema versionado con tareas y registros históricos.
-Una acción que afecte ambos debe guardarse de manera coherente.
+Actualmente conviven dos almacenamientos independientes:
 
-Para el primer usuario puede evaluarse un único documento persistido
-con las colecciones relacionadas. Si el tamaño, la concurrencia
-o los requisitos lo justifican, evaluar otro almacenamiento.
+- localStorage para las tareas del frontend.
+- PostgreSQL para las tareas y objetivos creados mediante la API.
 
-- Capturar errores de lectura y escritura.
-- Validar estructura y reglas de consistencia.
-- Distinguir ausencia de datos, corrupción y versión incompatible.
-- No anunciar éxito persistido si la escritura falló.
-- No sobrescribir datos inválidos con mocks al cargar.
-- Definir comportamiento ante dos pestañas para evitar pérdida silenciosa.
+La integración debe establecer PostgreSQL como fuente de verdad
+para las funciones conectadas, sin mantener dos versiones divergentes.
+La política de trabajo sin conexión todavía no está definida.
 
-Exportación y recuperación son propuestas de protección,
-no funcionalidades ya implementadas.
+Antes de migrar los datos locales:
 
-## Migración del modelo existente
+1. Conservar un respaldo del contenido original.
+2. Definir correspondencias de campos e identificadores.
+3. Validar los datos y evitar duplicados al repetir la importación.
+4. Confirmar la persistencia antes de retirar los datos de origen.
+5. Conservar el origen si la operación falla.
 
-Antes de editar Task o el validador:
-1. Conservar un respaldo del contenido actual.
-2. Identificar la versión de origen.
-3. Definir correspondencias de campos.
-4. Validar la transformación antes de reemplazar datos.
-5. Conservar el origen si la transformación falla.
+No inventar compromisos históricos usando la fecha de creación.
+Definir el inicio del seguimiento fiable y el tratamiento de tareas
+antiguas según P05. Conservar su importancia según el flujo aprobado.
+La exportación y recuperación de datos todavía no están implementadas.
 
-No se puede deducir cuándo una tarea antigua pasó a today.
-No inventar compromisos históricos usando su fecha de creación.
-Definir una fecha de inicio del seguimiento fiable y cómo tratar
-las tareas anteriores; esa política necesita aprobación.
-Preservar la importancia existente hasta resolver P08.
+## Backend: pendientes
 
-## Backend futuro
+Express, TypeScript y PostgreSQL ya están implementados.
+Todavía falta:
 
-Tecnología y base de datos pendientes de una decisión explícita.
-El README menciona Express; el aprendizaje de NestJS no cambia
-automáticamente esa propuesta.
+- Implementar asociaciones entre tareas y objetivos, semanas y compromisos.
+- Integrar las tareas, su importancia y los objetivos con el frontend.
+- Validar las transiciones y conservar el historial semanal.
+- Implementar cierres transaccionales e idempotentes.
+- Aplicar restricciones contra compromisos duplicados.
+- Resolver calendario, reaperturas y correcciones antes de implementarlos.
+- Incorporar autenticación y autorización antes del uso multiusuario.
+- Automatizar la aplicación y el registro de migraciones.
 
-Cuando exista backend:
-- Validar identidad del usuario y pertenencia de sus datos.
-- Aplicar reglas de compromiso y finalización en el servidor.
-- Evitar duplicados y actualizaciones parciales.
-- Usar transacciones y restricciones donde corresponda.
-- No confiar en un porcentaje o premio enviado por el cliente.
-- Conservar zona horaria y fechas según la política aprobada.
+No confiar en porcentajes, premios ni identidades enviados por el cliente.
+Las credenciales permanecen fuera de Git.
 
-No se necesita backend para empezar a verificar las reglas con datos locales.
+## Verificación
 
-## Verificación prevista
+La última ejecución verificada, el 10 de noviembre de 2026,
+aprobó las 26 pruebas existentes: 23 de integración y 3 unitarias.
+Consultar pruebas-api.md para su alcance y ejecución.
 
-Pruebas de reglas:
-- Misma tarea y fecha sin duplicados.
-- Retirar pendientes sin reducir el denominador.
-- Cumplimiento exacto del 80% y valores inferiores sin redondeo previo.
-- Completar en otra fecha sin modificar el resultado anterior.
-- Fechas consecutivas y límites de período.
-- Reapertura, corrección y cero compromisos después de resolver pendientes.
+Pruebas pendientes del modelo semanal:
 
-Pruebas de integración:
-- Persistencia y recarga.
-- Fallos de almacenamiento sin éxito falso.
-- Migración sin pérdida ni fechas históricas inventadas.
-- Inicio con datos reales y sin mensajes de progreso simulado.
+- Rechazar incorporaciones a Hoy sin un objetivo en curso.
+- Evitar duplicados por tarea y semana.
+- Conservar el denominador al retirar y reincorporar tareas.
+- Mantener pendientes entre días sin compromisos adicionales.
+- Calcular 8 completadas de 10 como 80%, sin inferir una clasificación.
+- Cerrar semanas vacías sin dividir por cero.
+- Respetar los límites semanales y conservar resultados históricos.
+- Reintentar cierres sin duplicar efectos ni afectar la nueva semana.
+- Migrar datos locales sin pérdidas ni historia inventada.
+- Probar reaperturas, correcciones y rachas cuando se aprueben sus reglas.
