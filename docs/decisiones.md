@@ -2,12 +2,10 @@
 
 ## Propósito
 
-Registrar decisiones, motivos y consecuencias.
-Los estados son propuesta, aceptada y reemplazada.
-Aceptada no significa implementada.
-
-Las reglas operativas viven en [reglas de negocio](reglas-de-negocio.md).
-Las preguntas P01 a P09 siguen abiertas; no quedan aprobadas por incluirlas.
+El estado de P01 a P09 se consulta en reglas-de-negocio.md:
+algunas están resueltas y otras conservan aspectos pendientes.
+Las decisiones reemplazadas se conservan como historia,
+no como instrucciones vigentes.
 
 ## D01 — Comenzar únicamente con tareas y resumen semanal
 
@@ -132,9 +130,10 @@ y reduce el porcentaje. No se agrega otra resta por ese compromiso.
 
 ### Consecuencias
 
-Cinco compromisos, tres cumplidos y dos retirados producen 60%.
-Una penalización adicional por varios días sin actividad no se inventa;
-su alcance se debe resolver en P09.
+Cinco compromisos semanales, tres cumplidos y dos retirados
+sin completar producen 60% al cierre.
+No se agregan penalizaciones por días sin nuevas tareas,
+según D08.
 
 ## D08 — Evaluar el cumplimiento al cierre semanal
 
@@ -167,35 +166,60 @@ antes del cierre / total de tareas incorporadas × 100.
 
 Las incompletas permanecen en el denominador.
 
+Retirar una tarea no elimina su compromiso ni reduce el denominador.
+
+Si no existen compromisos al cierre, la semana es negativa
+y permanece en el historial. No se realiza la división por cero.
+Su presentación numérica y su efecto en agregaciones y rachas
+siguen pendientes según P01.
+
 ### Cierre
 
-1. Guardar el resultado y el detalle de la semana.
+1. Guardar el resultado y el detalle histórico de la semana.
 2. Devolver las tareas incompletas a Importantes.
 3. Retirar de Hoy las completadas, conservando su historial.
-4. Comenzar la nueva semana con Hoy vacío.
+4. Conservar intactos los compromisos de la nueva semana.
 
 Una tarea pendiente solo cuenta en la nueva semana
-si el usuario vuelve a pasarla a Hoy.
-
+si el usuario vuelve a incorporarla explícitamente a Hoy.
 Completarla después no modifica la semana cerrada.
+Repetir el cierre no debe duplicar resultados ni efectos.
 
 ### Pendientes
 
-- Resultado de una semana sin tareas.
-- Mínimo semanal: tres o cuatro tareas.
-- Condiciones de racha y clasificación semanal.
-- Zona horaria utilizada para los cierres.
+- Presentación numérica de semanas vacías y efecto en agregaciones.
+- Mínimo semanal y condiciones para considerar positiva una semana.
+- Condiciones de racha y reconocimientos.
+- Zona horaria, inicio del seguimiento y semanas parciales.
 - Agregación mensual y anual.
-- Correcciones de resultados cerrados.
+- Reaperturas y correcciones de resultados cerrados.
 
-## Propuestas técnicas por evaluar
+## D09 — Backend con Express, TypeScript y PostgreSQL
 
-- Conservar frontend React, TypeScript y Vite y empezar con persistencia local.
-- Usar un registro histórico mínimo para creación y compromisos.
-- Definir fechas diarias y cierres sin depender de la aplicación abierta.
-- Mantener la lógica de negocio separada de componentes y almacenamiento.
-- Elegir backend y base de datos cuando corresponda.
+Estado: aceptada; base técnica implementada.
 
-Estudiar NestJS no constituye por sí solo una decisión de adoptarlo.
-El README del repositorio menciona Express como backend futuro;
-esa referencia debe revisarse cuando se tome una decisión tecnológica.
+### Motivo
+
+Afianzar Express en un segundo proyecto y aprender PostgreSQL.
+No incorporar NestJS en esta etapa.
+
+### Implementación actual
+
+- API con Express y TypeScript.
+- PostgreSQL mediante pg y consultas SQL parametrizadas.
+- Creación y listado de tareas, edición de título y cambio de importancia.
+- Creación y listado de objetivos con motivación, recompensa y fecha opcionales.
+- Validación del calendario en una función independiente de Express y PostgreSQL.
+- Cuatro migraciones SQL versionadas y aplicadas manualmente.
+- Pruebas con Node Test Runner, Supertest y task_rain_test.
+- Frontend con localStorage, todavía separado de la API.
+
+### Consecuencias y pendientes
+
+- Integrar el frontend y definir la migración de sus datos.
+- Persistir asociaciones, semanas y compromisos.
+- Mantener la lógica de negocio independiente de React.
+- Implementar cierres sin depender del navegador.
+- Resolver las políticas pendientes antes de implementarlas.
+- Automatizar migraciones e incorporar autenticación y autorización
+  antes del uso multiusuario.

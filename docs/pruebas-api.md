@@ -10,24 +10,29 @@
 
 ## Preparar la base
 
-En pgAdmin, abrir Query Tool sobre `task_rain_test`
-conectado como `postgres`.
-
-Comprobar el destino:
+En pgAdmin, conectarse como postgres a task_rain_test y comprobar:
 
 ```sql
 SELECT current_database(), current_user;
 ```
 
-Debe mostrar `task_rain_test` y `postgres`.
+El resultado debe indicar task_rain_test y postgres.
 
-En una base nueva, ejecutar una vez:
-`apps/api/db/migrations/001_create_tasks.sql`.
+En una base nueva, ejecutar una vez y en este orden:
+
+1. apps/api/db/migrations/001_create_tasks.sql
+2. apps/api/db/migrations/002_allow_task_title_update.sql
+3. apps/api/db/migrations/003_add_task_importance.sql
+4. apps/api/db/migrations/004_create_objectives.sql
+
+En una base existente, ejecutar solamente las migraciones
+pendientes, respetando el orden.
 
 Despues, solo en la base de pruebas, ejecutar:
 
 ```sql
 GRANT DELETE ON TABLE public.tasks TO task_rain_app;
+GRANT DELETE ON TABLE public.objectives TO task_rain_app;
 ```
 
 Este permiso permite limpiar los datos creados por los tests.
@@ -57,14 +62,73 @@ npm test -w apps/api
 
 No hace falta iniciar Express: Supertest administra un servidor temporal.
 
+Para ejecutar únicamente las pruebas del calendario, sin PostgreSQL
+ni archivo de entorno:
+
+```bash
+npm run test:unit -w apps/api
+```
+
+La suite completa ejecuta app.test.ts y date.test.ts.
+
 ## Cobertura actual
 
-- GET /health responde 200 con status ok.
-- POST /tasks rechaza titulos compuestos por espacios.
-- POST /tasks rechaza titulos numericos.
-- Una tarea valida se crea y aparece al listar.
+La suite contiene 26 pruebas: 23 de integración y 3 unitarias del calendario.
 
-Antes de las pruebas se verifica el entorno y la base real.
-Cada prueba de creacion elimina su tarea mediante un titulo unico.
-Si el proceso se interrumpe abruptamente, pueden quedar datos de prueba.
-Estas pruebas no cubren todavia objetivos ni compromisos semanales.
+- GET /health responde 200 con status ok.
+- POST /tasks rechaza títulos compuestos por espacios.
+- POST /tasks rechaza títulos numéricos.
+- Una tarea válida se crea y aparece al listar.
+- PATCH /tasks/:id actualiza el título, elimina espacios
+  de los extremos y conserva el identificador y la fecha.
+  El cambio también se comprueba mediante el listado.
+- PATCH /tasks/:id rechaza identificadores inválidos con 400.
+- PATCH /tasks/:id responde 404 si la tarea no existe.
+- PATCH /tasks/:id rechaza títulos inválidos con 400
+  y conserva los datos originales de la tarea.
+- PATCH /tasks/:id/importance marca y desmarca importancia,
+  conserva los otros datos y persiste el cambio al listar.
+  Repetir el mismo valor mantiene el resultado.
+- PATCH /tasks/:id/importance rechaza identificadores inválidos con 400.
+- PATCH /tasks/:id/importance responde 404 si la tarea no existe.
+- PATCH /tasks/:id/importance rechaza valores no booleanos o ausentes
+  con 400 y conserva la tarea importante sin cambios.
+- POST /objectives crea un objetivo y GET /objectives lo devuelve.
+  Se comprueban espacios recortados, estado inicial in_progress,
+  fecha de creación y campos opcionales en null.
+- POST /objectives rechaza títulos inválidos con 400.
+- POST /objectives rechaza criterios de logro inválidos con 400.
+- POST /objectives rechaza períodos inválidos con 400.
+
+Las tres pruebas de campos obligatorios recorren quince entradas inválidas y verifican
+el código HTTP y el mensaje. No comprueban por sí mismas que esos
+intentos no hayan insertado registros. La creación válida automatizada
+cubre monthly; weekly y yearly son aceptados por el código, pero aún
+no tienen casos de creación válidos en la suite.
+
+Cobertura adicional de campos opcionales:
+
+- Motivación y recompensa se recortan y se conservan al listar.
+- Texto vacío, espacios, null o ausencia se guardan como null.
+- Cada campo rechaza números, booleanos, objetos y arreglos con 400;
+  se consulta la base para comprobar que no se insertaron registros.
+- Una fecha objetivo válida, incluido 2028-02-29, se conserva al crear y listar.
+- targetDate explícitamente null permite crear y listar el objetivo sin fecha.
+  La ausencia del campo también está cubierta por la creación básica.
+- Fechas imposibles, formatos incorrectos y tipos inválidos producen 400
+  sin insertar registros. Un texto vacío no equivale a una fecha ausente.
+- Las tres pruebas unitarias comprueban fechas reales, días inexistentes
+  y formatos incorrectos, incluidos años bisiestos y límites 0001/9999.
+
+Última ejecución verificada: 10 de noviembre de 2026, 26 aprobadas,
+0 fallidas. Actualizar este resultado cuando cambie la suite.
+
+Antes de las pruebas de integración se verifica el entorno y la base real.
+Las pruebas que crean tareas u objetivos eliminan sus propios registros
+mediante un título único o su identificador.
+Si el proceso se interrumpe abruptamente, pueden quedar datos
+de prueba.
+
+No hay cobertura de cambios de estado de objetivos, compromisos
+ni cierres semanales. La suite
+tampoco simula fallos de PostgreSQL para comprobar las respuestas 500.

@@ -5,13 +5,25 @@
 Fuente central de reglas para producto, funcionalidades y arquitectura.
 
 - Tarea: actividad capturada en la aplicación.
-- Registro: creación de una tarea en la lluvia.
-- Compromiso semanal: tarea elegida para Hoy, asociada a una fecha.
-- Cumplimiento: resultado de ese compromiso durante esa fecha.
-- Objetivo: meta que se quiere alcanzar; su criterio de logro está pendiente.
-- Racha: sucesión de días consecutivos que cumplen una condición.
+- Registro: creación de una tarea en la lluvia. No genera
+  estadísticas ni penalizaciones por sí mismo.
+- Objetivo: meta que orienta las tareas. Para incorporar una
+  tarea a Hoy debe seleccionarse un objetivo en curso.
+- Compromiso semanal: registro que vincula una tarea con un
+  objetivo y una semana al confirmar su incorporación a Hoy.
+- Cumplimiento semanal: proporción de compromisos completados
+  antes del cierre respecto del total comprometido.
+- Semana: período desde el lunes a las 00:00, incluido,
+  hasta el lunes siguiente a las 00:00, excluido.
+  La zona horaria está pendiente de definición.
+- Cierre semanal: proceso que conserva el resultado histórico,
+  devuelve las incompletas a Importantes y retira de Hoy
+  las tareas de la semana cerrada.
+- Racha: mecanismo pendiente de redefinición.
+  La propuesta semanal todavía no tiene condiciones aprobadas.
 
 Una tarea y su compromiso semanal no son el mismo registro.
+Cada combinación tarea + semana puede existir una sola vez.
 
 ## R01 — Captura y filtrado
 

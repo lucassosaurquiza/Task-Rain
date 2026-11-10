@@ -31,17 +31,25 @@ Cada funcionalidad tiene además una referencia a su estado de implementación.
 
 ## Cómo continuar
 
-1. Resolver las preguntas P01 a P09 de reglas-de-negocio.md
-   antes de implementar la parte que dependa de ellas.
-2. Diseñar la migración de los datos existentes sin inventar fechas.
-3. Construir tareas y compromisos diarios con persistencia.
-4. Implementar cálculos diarios, registro semanal y rachas.
-5. Incorporar consultas semanales y mensuales según la fórmula aprobada.
-6. Implementar objetivos y reconocimientos con sus reglas aprobadas.
-7. Verificar los escenarios documentados y realizar la prueba personal.
+1. Mantener la documentación alineada con las reglas y la implementación.
+2. Resolver las decisiones pendientes que afecten a cada función
+   antes de implementarla.
+3. Revisar la separación de validación, HTTP y persistencia antes de ampliar
+   las rutas. La creación y listado de objetivos con campos opcionales,
+   la edición de títulos de tareas y su importancia ya están implementados
+   y cuentan con pruebas. El validador de fechas ya es independiente.
+4. Implementar semanas y compromisos vinculados a objetivos,
+   evitando duplicados por tarea y semana.
+5. Implementar el cierre semanal y la conservación del historial.
+6. Conectar el frontend con la API y definir cómo migrar los datos
+   locales sin pérdidas ni compromisos históricos inventados.
+7. Implementar estadísticas, clasificación, rachas y reconocimientos
+   únicamente según las reglas aprobadas.
+8. Ampliar las pruebas automatizadas y verificar el uso diario.
 
-El orden es una propuesta de trabajo, no una exclusión de objetivos,
-estadísticas o motivación del producto.
+Este orden es una propuesta incremental. Las funciones existentes
+del backend y sus pruebas están documentadas en pruebas-api.md.
+Los cálculos mensuales y anuales siguen pendientes de definición.
 
 ## Uso de la documentación
 
