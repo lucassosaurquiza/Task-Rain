@@ -37,7 +37,8 @@ Cada funcionalidad tiene además una referencia a su estado de implementación.
 3. Revisar la separación de validación, HTTP y persistencia antes de ampliar
    las rutas. La creación y listado de objetivos con campos opcionales,
    la edición de títulos de tareas y su importancia ya están implementados
-   y cuentan con pruebas. El validador de fechas ya es independiente.
+   y cuentan con pruebas. Los validadores de fechas y creación de objetivos
+   ya son independientes de HTTP y PostgreSQL; POST utiliza el de objetivos.
 4. Implementar semanas y compromisos vinculados a objetivos,
    evitando duplicados por tarea y semana.
 5. Implementar el cierre semanal y la conservación del historial.
