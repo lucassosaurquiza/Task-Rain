@@ -59,9 +59,13 @@ Referencias:
 - validation/objective.ts contiene validateCreateObjective: recibe unknown,
   valida y normaliza los campos, y consulta el validador de fechas.
   Devuelve { ok: true, data } o { ok: false, error }, sin modificar la entrada.
-- POST /objectives utiliza ese resultado: responde 400 ante error o guarda
-  data mediante SQL y responde 201. HTTP y persistencia siguen en la ruta;
-  la validación ya es independiente de Express y PostgreSQL.
+- POST /objectives utiliza ese resultado: responde 400 ante error o pasa
+  data a createObjective y responde 201 con el objetivo creado.
+- repositories/objectives.repository.ts contiene listObjectives y
+  createObjective: ejecuta el SQL mediante el pool y devuelve los datos.
+  No recibe req ni res; los errores llegan a la ruta, que responde 500.
+- Las rutas de objetivos coordinan la validación y la persistencia y
+  construyen la respuesta HTTP. Las consultas de tareas siguen en sus rutas.
 - El estado enviado por el cliente se ignora; la creación usa in_progress.
 - Los alias SQL devuelven successCriterion, targetDate y createdAt.
   targetDate se representa como YYYY-MM-DD o null, sin convertirlo en instante.
