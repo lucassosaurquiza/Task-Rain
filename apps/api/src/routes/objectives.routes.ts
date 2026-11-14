@@ -1,27 +1,17 @@
 import { Router } from "express";
-import { pool } from "../db.js";
 import { validateCreateObjective } from "../validation/objective.js";
+import {
+  listObjectives,
+  createObjective,
+} from "../repositories/objectives.repository.js";
 
 export const objectiveRouter = Router();
 
 objectiveRouter.get("/", async (_req, res) => {
   try {
-    const result = await pool.query(`
-      SELECT
-        id,
-        title,
-        success_criterion AS "successCriterion",
-        period,
-        status,
-        motivation,
-        reward,
-        to_char(target_date, 'YYYY-MM-DD') AS "targetDate",
-        created_at AS "createdAt"
-      FROM public.objectives
-      ORDER BY created_at DESC, id DESC
-    `);
+    const objectives = await listObjectives();
 
-    res.json(result.rows);
+    res.json(objectives);
   } catch (error) {
     console.error("Error al listar objetivos:", error);
 
@@ -41,36 +31,10 @@ objectiveRouter.post("/", async (req, res) => {
     return;
   }
 
-  const data = validation.data;
-
   try {
-    const result = await pool.query(
-      `INSERT INTO public.objectives (
-         title, success_criterion, period,
-         motivation, reward, target_date
-       )
-       VALUES ($1, $2, $3, $4, $5, $6)
-       RETURNING
-         id,
-         title,
-         success_criterion AS "successCriterion",
-         period,
-         status,
-         motivation,
-         reward,
-         to_char(target_date, 'YYYY-MM-DD') AS "targetDate",
-         created_at AS "createdAt"`,
-      [
-        data.title,
-        data.successCriterion,
-        data.period,
-        data.motivation,
-        data.reward,
-        data.targetDate,
-      ],
-    );
+    const objective = await createObjective(validation.data);
 
-    res.status(201).json(result.rows[0]);
+    res.status(201).json(objective);
   } catch (error) {
     console.error("Error al crear objetivo:", error);
 
