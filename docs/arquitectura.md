@@ -65,7 +65,12 @@ Referencias:
   createObjective: ejecuta el SQL mediante el pool y devuelve los datos.
   No recibe req ni res; los errores llegan a la ruta, que responde 500.
 - Las rutas de objetivos coordinan la validación y la persistencia y
-  construyen la respuesta HTTP. Las consultas de tareas siguen en sus rutas.
+  construyen la respuesta HTTP.
+- repositories/tasks.repository.ts contiene listTasks, createTask,
+  updateTaskTitle y updateTaskImportance. Las rutas de tareas conservan
+  las validaciones de entrada y las respuestas HTTP; ya no ejecutan SQL.
+  Las funciones de actualización devuelven la tarea o null si no existe,
+  y la ruta convierte ese null en una respuesta 404.
 - El estado enviado por el cliente se ignora; la creación usa in_progress.
 - Los alias SQL devuelven successCriterion, targetDate y createdAt.
   targetDate se representa como YYYY-MM-DD o null, sin convertirlo en instante.
