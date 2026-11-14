@@ -1,17 +1,17 @@
 import { Router } from "express";
-import { pool } from "../db.js";
+import {
+  listTasks,
+  createTask,
+  updateTaskTitle,
+  updateTaskImportance,
+} from "../repositories/tasks.repository.js";
 
 export const taskRouter = Router();
 
 taskRouter.get("/", async (_req, res) => {
   try {
-    const result = await pool.query(`
-    SELECT id, title, is_important AS "isImportant",
-       created_at AS "createdAt"
-    FROM public.tasks
-    ORDER BY created_at DESC, id DESC
-    `);
-    res.json(result.rows);
+    const tasks = await listTasks();
+    res.json(tasks);
   } catch (error) {
     console.error("Error al listar tareas:", error);
 
@@ -32,14 +32,8 @@ taskRouter.post("/", async (req, res) => {
   }
 
   try {
-    const result = await pool.query(
-      `INSERT INTO public.tasks (title)
-      VALUES ($1)
-     RETURNING id, title, is_important AS "isImportant",
-          created_at AS "createdAt"`,
-      [title.trim()],
-    );
-    res.status(201).json(result.rows[0]);
+    const task = await createTask(title.trim());
+    res.status(201).json(task);
   } catch (error) {
     console.error("Error al crear tarea:", error);
     res.status(500).json({
@@ -70,23 +64,16 @@ taskRouter.patch("/:id", async (req, res) => {
   }
 
   try {
-    const result = await pool.query(
-      `UPDATE public.tasks
-       SET title = $1
-       WHERE id = $2
-       RETURNING id, title, is_important AS "isImportant",
-          created_at AS "createdAt"`,
-      [title.trim(), id],
-    );
+    const task = await updateTaskTitle(id, title.trim());
 
-    if (result.rowCount === 0) {
+    if (task === null) {
       res.status(404).json({
         error: "La tarea no existe",
       });
       return;
     }
 
-    res.status(200).json(result.rows[0]);
+    res.status(200).json(task);
   } catch (error) {
     console.error("Error al editar tarea:", error);
 
@@ -118,23 +105,16 @@ taskRouter.patch("/:id/importance", async (req, res) => {
   }
 
   try {
-    const result = await pool.query(
-      `UPDATE public.tasks
-       SET is_important = $1
-       WHERE id = $2
-       RETURNING id, title, is_important AS "isImportant",
-                 created_at AS "createdAt"`,
-      [isImportant, id],
-    );
+    const task = await updateTaskImportance(id, isImportant);
 
-    if (result.rowCount === 0) {
+    if (task === null) {
       res.status(404).json({
         error: "La tarea no existe",
       });
       return;
     }
 
-    res.status(200).json(result.rows[0]);
+    res.status(200).json(task);
   } catch (error) {
     console.error("Error al cambiar importancia:", error);
 

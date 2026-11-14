@@ -39,9 +39,9 @@ Cada funcionalidad tiene además una referencia a su estado de implementación.
    la edición de títulos de tareas y su importancia ya están implementados
    y cuentan con pruebas. Los validadores de fechas y creación de objetivos
    ya son independientes de HTTP y PostgreSQL; POST utiliza el de objetivos.
-   Las consultas de objetivos están separadas en objectives.repository.ts;
-   sus rutas coordinan la validación y las respuestas HTTP. La separación
-   de las consultas de tareas sigue pendiente.
+   Las consultas están separadas en objectives.repository.ts y
+   tasks.repository.ts; las rutas coordinan la validación y las respuestas
+   HTTP. Las validaciones de tareas todavía permanecen dentro de sus rutas.
 4. Implementar semanas y compromisos vinculados a objetivos,
    evitando duplicados por tarea y semana.
 5. Implementar el cierre semanal y la conservación del historial.
