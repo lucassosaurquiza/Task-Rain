@@ -24,6 +24,7 @@ En una base nueva, ejecutar una vez y en este orden:
 2. apps/api/db/migrations/002_allow_task_title_update.sql
 3. apps/api/db/migrations/003_add_task_importance.sql
 4. apps/api/db/migrations/004_create_objectives.sql
+5. apps/api/db/migrations/005_add_task_objective.sql
 
 En una base existente, ejecutar solamente las migraciones
 pendientes, respetando el orden.
@@ -73,12 +74,20 @@ La suite completa ejecuta app.test.ts, date.test.ts y objective-validation.test.
 
 ## Cobertura actual
 
-La suite contiene 29 pruebas: 23 de integración y 6 unitarias.
+La suite contiene 33 pruebas: 27 de integración y 6 unitarias.
 
 - GET /health responde 200 con status ok.
 - POST /tasks rechaza títulos compuestos por espacios.
 - POST /tasks rechaza títulos numéricos.
 - Una tarea válida se crea y aparece al listar.
+  Su objectiveId inicial es null.
+- PATCH /tasks/:id/objective asigna, cambia y quita el objetivo; repetir
+  asignación o desvinculación conserva el estado. Se verifica mediante GET.
+- Rechaza identificadores de tarea inválidos con 400 y tareas inexistentes
+  con 404. Rechaza objectiveId ausente, mal formado o de tipo incorrecto
+  con 400, y objetivos inexistentes con 404, conservando la asociación previa.
+- Editar título o importancia conserva el objetivo asociado y los demás
+  campos que no se modifican.
 - PATCH /tasks/:id actualiza el título, elimina espacios
   de los extremos y conserva el identificador y la fecha.
   El cambio también se comprueba mediante el listado.
@@ -103,8 +112,7 @@ La suite contiene 29 pruebas: 23 de integración y 6 unitarias.
 Las tres pruebas de campos obligatorios recorren quince entradas inválidas y verifican
 el código HTTP y el mensaje. No comprueban por sí mismas que esos
 intentos no hayan insertado registros. La creación válida automatizada
-cubre monthly; weekly y yearly son aceptados por el código, pero aún
-no tienen casos de creación válidos en la suite.
+cubre monthly y weekly; yearly aún no tiene un caso de creación por HTTP.
 
 Cobertura adicional de campos opcionales:
 
@@ -129,9 +137,9 @@ Las tres pruebas unitarias del validador de objetivos comprueban:
 Estas pruebas llaman a validateCreateObjective directamente. Las pruebas
 de integración existentes también pasan por el validador desde la ruta.
 Aceptar períodos en una prueba unitaria no comprueba su persistencia;
-la creación válida por HTTP sigue cubierta con monthly.
+la creación válida por HTTP está cubierta con monthly y weekly.
 
-Última ejecución verificada: 10 de noviembre de 2026, 29 aprobadas,
+Última ejecución verificada: 16 de noviembre de 2026, 33 aprobadas,
 0 fallidas. Actualizar este resultado cuando cambie la suite.
 
 Antes de las pruebas de integración se verifica el entorno y la base real.

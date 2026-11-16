@@ -80,14 +80,21 @@ Referencias:
 - El estado enviado por el cliente se ignora; la creación usa in_progress.
 - Los alias SQL devuelven successCriterion, targetDate y createdAt.
   targetDate se representa como YYYY-MM-DD o null, sin convertirlo en instante.
-- Las migraciones 001 a 004 están versionadas y se aplican manualmente.
+- PATCH /tasks/:id/objective asigna, cambia o quita el objetivo actual.
+  Recibe objectiveId como UUID o null explícito; rechaza ausencia y valores
+  inválidos con 400. Responde 404 si la tarea o el objetivo no existen.
+  La migración 005 agrega objective_id nullable, una clave foránea con
+  ON DELETE RESTRICT y permiso UPDATE sobre la columna.
+  Las respuestas de tareas incluyen objectiveId. La asociación no mueve
+  la tarea a Hoy ni comprueba el estado del objetivo.
+- Las migraciones 001 a 005 están versionadas y se aplican manualmente.
 - No hay autenticación ni separación de datos por usuario.
 
 ### Pruebas
 
 - Node Test Runner y Supertest.
 - Base separada task_rain_test.
-- 23 pruebas de integración de salud, tareas, importancia y objetivos.
+- 27 pruebas de integración de salud, tareas, importancia, objetivos y asociaciones.
 - 6 pruebas unitarias de calendario y validación de objetivos,
   ejecutables sin PostgreSQL con test:unit.
 - Preparación y ejecución documentadas en pruebas-api.md.
@@ -117,15 +124,16 @@ para conservar un historial mínimo.
 ## Modelo conceptual propuesto
 
 Las tablas tasks y objectives están implementadas en PostgreSQL.
-Sus asociaciones, semanas y compromisos describen el modelo previsto,
-no migraciones aplicadas.
+La asociación actual entre tareas y objetivos está implementada.
+Las semanas y compromisos describen el modelo previsto, todavía no implementado.
 
 ### Tarea
 
 - Identidad estable, título y fecha de creación.
 - Importancia persistida mediante is_important; integración con las
   columnas del frontend pendiente.
-- Posible objetivo asociado, opcional antes de incorporarse a Hoy.
+- Cero o un objetivo actual, asignable antes de incorporarse a Hoy
+  según D10. Relación implementada mediante objective_id y su endpoint.
 - Estado actual de finalización, cuyo diseño persistido falta definir.
 
 Crear o priorizar una tarea no genera estadísticas.
@@ -138,8 +146,8 @@ La eliminación y las reaperturas requieren resolver P02 y P03.
 - Identidad, título, criterio de logro, período y estado.
 - Período semanal, mensual o anual.
 - Motivación, recompensa y fecha objetivo opcionales.
-- Se prevé que tenga varias tareas y compromisos asociados;
-  las relaciones todavía no están implementadas.
+- Puede tener varias tareas asociadas. Los compromisos todavía no están
+  implementados.
 
 La creación y el listado básicos están implementados. Aunque la tabla
 admite los estados in_progress y achieved, no hay una ruta para cambiar
@@ -269,7 +277,7 @@ La exportación y recuperación de datos todavía no están implementadas.
 Express, TypeScript y PostgreSQL ya están implementados.
 Todavía falta:
 
-- Implementar asociaciones entre tareas y objetivos, semanas y compromisos.
+- Implementar semanas y compromisos vinculados a tareas y objetivos.
 - Integrar las tareas, su importancia y los objetivos con el frontend.
 - Validar las transiciones y conservar el historial semanal.
 - Implementar cierres transaccionales e idempotentes.
@@ -283,8 +291,8 @@ Las credenciales permanecen fuera de Git.
 
 ## Verificación
 
-La última ejecución verificada, el 10 de noviembre de 2026,
-aprobó las 29 pruebas existentes: 23 de integración y 6 unitarias.
+La última ejecución verificada, el 16 de noviembre de 2026,
+aprobó las 33 pruebas existentes: 27 de integración y 6 unitarias.
 Consultar pruebas-api.md para su alcance y ejecución.
 
 Pruebas pendientes del modelo semanal:

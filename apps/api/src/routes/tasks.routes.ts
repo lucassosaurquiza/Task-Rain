@@ -4,9 +4,13 @@ import {
   createTask,
   updateTaskTitle,
   updateTaskImportance,
+  updateTaskObjective,
 } from "../repositories/tasks.repository.js";
 import { isValidUuid } from "../validation/uuid.js";
-import { validateTaskTitle } from "../validation/task.js";
+import {
+  validateTaskTitle,
+  validateTaskObjective,
+} from "../validation/task.js";
 
 export const taskRouter = Router();
 
@@ -116,6 +120,58 @@ taskRouter.patch("/:id/importance", async (req, res) => {
 
     res.status(500).json({
       error: "No se pudo cambiar la importancia de la tarea",
+    });
+  }
+});
+
+taskRouter.patch("/:id/objective", async (req, res) => {
+  const { id } = req.params;
+
+  if (!isValidUuid(id)) {
+    res.status(400).json({
+      error: "El identificador debe ser un UUID valido",
+    });
+    return;
+  }
+
+  const validation = validateTaskObjective(req.body?.objectiveId);
+
+  if (!validation.ok) {
+    res.status(400).json({
+      error: validation.error,
+    });
+    return;
+  }
+
+  try {
+    const task = await updateTaskObjective(id, validation.data);
+
+    if (task === null) {
+      res.status(404).json({
+        error: "La tarea no existe",
+      });
+      return;
+    }
+
+    res.status(200).json(task);
+  } catch (error) {
+    if (
+      error instanceof Error &&
+      "code" in error &&
+      error.code === "23503" &&
+      "constraint" in error &&
+      error.constraint === "tasks_objective_id_fkey"
+    ) {
+      res.status(404).json({
+        error: "El objetivo no existe",
+      });
+      return;
+    }
+
+    console.error("Error al cambiar objetivo:", error);
+
+    res.status(500).json({
+      error: "No se pudo cambiar el objetivo de la tarea",
     });
   }
 });

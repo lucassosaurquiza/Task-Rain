@@ -36,6 +36,15 @@ Estado: aceptado según D08.
 - La evaluación comienza cuando una tarea se incorpora
   a Hoy, vinculada a un objetivo en curso.
 
+Asociación actual aceptada según D10 (implementada en la API;
+compromisos semanales pendientes):
+
+- Una tarea puede no tener objetivo o tener un único objetivo actual.
+- Un objetivo puede agrupar muchas tareas.
+- Se puede asignar el objetivo antes de incorporar la tarea a Hoy.
+- Esa asignación por sí sola no crea un compromiso semanal.
+- Cambiar la asociación actual no reasigna el objetivo de compromisos previos.
+
 ## R02 — Días sin nuevas tareas
 
 Estado: aceptado según D08.

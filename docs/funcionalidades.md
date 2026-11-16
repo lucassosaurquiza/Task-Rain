@@ -13,7 +13,8 @@ Referencia de la implementación actual:
 - La API permite crear y listar tareas, editar títulos y cambiar importancia.
 - La API permite crear y listar objetivos con sus campos obligatorios y opcionales.
 - El frontend todavía no consume la API.
-- Existen 29 pruebas automatizadas: 23 de integración y 6 unitarias
+- La API permite asignar, cambiar y quitar el objetivo actual de una tarea.
+- Existen 33 pruebas automatizadas: 27 de integración y 6 unitarias
   de calendario y validación de objetivos.
 - Los compromisos semanales y cierres no están
   implementados en el backend.
@@ -237,7 +238,7 @@ disponibles. Frontend todavía sin integración con estas rutas.
 - Se permiten fechas pasadas. No se infiere una fecha a partir de period.
 - El listado conserva la fecha como YYYY-MM-DD sin zona horaria.
 - No hay edición, eliminación ni cambios de estado de objetivos por API.
-- No hay asociación persistida con tareas ni cálculo de progreso.
+- La asociación actual con tareas está persistida; no hay cálculo de progreso.
 - La suite cubre creación mensual y listado, valores iniciales,
   recorte de espacios, campos opcionales, calendario y rechazos de entradas.
 
