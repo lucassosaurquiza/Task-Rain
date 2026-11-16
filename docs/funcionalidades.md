@@ -14,10 +14,10 @@ Referencia de la implementación actual:
 - La API permite crear y listar objetivos con sus campos obligatorios y opcionales.
 - El frontend todavía no consume la API.
 - La API permite asignar, cambiar y quitar el objetivo actual de una tarea.
-- Existen 33 pruebas automatizadas: 27 de integración y 6 unitarias
-  de calendario y validación de objetivos.
-- Los compromisos semanales y cierres no están
-  implementados en el backend.
+- Existen 40 pruebas automatizadas: 34 de integración y 6 unitarias
+  de fechas y validación de objetivos.
+- La API crea y reutiliza compromisos semanales con su objetivo original.
+- El listado de Hoy, los retiros, la finalización y los cierres siguen pendientes.
 - La pantalla de objetivos y el dashboard todavía no representan
   el flujo semanal completo con datos reales.
 
@@ -60,7 +60,7 @@ repetir actualmente un POST válido puede crear otra tarea.
 Estado del requisito: conservado del alcance anterior.
 Implementación: edición de título mediante PATCH /tasks/:id disponible
 y probada. Integración con la interfaz pendiente. La API todavía no
-persiste finalización ni compromisos.
+persiste finalización; los compromisos se guardan por separado.
 
 - Permitir editar títulos de tareas pendientes o completadas.
 - Validar título, guardar explícitamente y permitir cancelar.
@@ -102,7 +102,15 @@ después de resolver P03.
 ## F04 — Incorporar una tarea a Hoy
 
 Estado del requisito: aceptado según R03.
-Implementación: interfaz local parcial; compromiso semanal pendiente.
+Implementación: POST /tasks/:id/commitments disponible y probado.
+La interfaz sigue siendo local y todavía no consume este endpoint.
+
+El POST no requiere body: usa el objetivo actual de la tarea y la semana
+calculada por el backend en America/Argentina/Buenos_Aires. Una incorporación
+nueva exige importancia y objetivo in_progress. Devuelve 201 al crear,
+200 al repetir, 400 ante UUID inválido, 404 si falta la tarea y 409 si no
+cumple las condiciones. Repetir devuelve el compromiso original incluso
+si luego cambia la importancia o el objetivo actual de la tarea.
 
 - Seguir el recorrido Lluvia → Importantes → Hoy.
 - Exigir un objetivo en curso y confirmar la incorporación.
@@ -122,7 +130,8 @@ Implementación: interfaz local parcial; compromiso semanal pendiente.
 ## F05 — Retirar tareas y cambiar de período
 
 Estado del requisito: aceptado según R03 y R07.
-Implementación: historial y cierre semanal pendientes.
+Implementación: se persiste el compromiso original; retiro, consulta del historial
+y cierre semanal pendientes.
 
 - Retirar una tarea de Hoy conserva su compromiso y el denominador.
 - Reincorporarla en la misma semana reutiliza ese compromiso.
@@ -179,7 +188,7 @@ Implementación: dashboard visual, sin evaluación semanal completa.
 - Distinguir semana vacía, período futuro, falta de historial y error.
 - No presentar datos simulados como resultados personales.
 - Resolver P04 antes de implementar agregaciones mensuales y anuales.
-- Resolver P05 para calendario, inicio y períodos parciales.
+- Aplicar D11 para calendario, inicio y períodos parciales.
 
 ### Aceptación
 
@@ -214,7 +223,7 @@ Implementación: pendiente.
 - No se otorgan premios ni se reinician contadores usando
   condiciones todavía pendientes.
 - Los casos de racha y clasificación restante se definirán
-  cuando se resuelvan P01, P05 y P09.
+  cuando se resuelvan P01 y P09, aplicando el calendario aprobado en D11.
 
 ## F09 — Gestionar objetivos
 
