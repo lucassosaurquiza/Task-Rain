@@ -19,6 +19,118 @@ after(async () => {
   await pool.end();
 });
 
+test("PATCH objective rechaza un identificador de tarea invalido", async () => {
+  const response = await request(app)
+    .patch("/tasks/abc/objective")
+    .send({ objectiveId: null });
+
+  assert.equal(response.status, 400);
+  assert.deepEqual(response.body, {
+    error: "El identificador debe ser un UUID valido",
+  });
+});
+
+test("PATCH objective devuelve 404 cuando la tarea no existe", async () => {
+  const response = await request(app)
+    .patch(`/tasks/${randomUUID()}/objective`)
+    .send({ objectiveId: null });
+
+  assert.equal(response.status, 404);
+  assert.deepEqual(response.body, { error: "La tarea no existe" });
+});
+
+test("rechaza asociaciones invalidas y conserva el objetivo al editar otros campos", async (t) => {
+  const taskTitle = `Validacion de asociacion ${randomUUID()}`;
+  const updatedTitle = `${taskTitle} editada`;
+  const objectiveTitle = `Objetivo protegido ${randomUUID()}`;
+
+  t.after(async () => {
+    await pool.query("DELETE FROM public.tasks WHERE title IN ($1, $2)", [
+      taskTitle,
+      updatedTitle,
+    ]);
+    await pool.query("DELETE FROM public.objectives WHERE title = $1", [
+      objectiveTitle,
+    ]);
+  });
+
+  const objective = await request(app).post("/objectives").send({
+    title: objectiveTitle,
+    successCriterion: "Conservar la asociacion",
+    period: "weekly",
+  });
+  assert.equal(objective.status, 201);
+
+  const created = await request(app).post("/tasks").send({ title: taskTitle });
+  assert.equal(created.status, 201);
+  const id = created.body.id;
+  const expected = { ...created.body, objectiveId: objective.body.id };
+
+  const assigned = await request(app)
+    .patch(`/tasks/${id}/objective`)
+    .send({ objectiveId: objective.body.id });
+  assert.equal(assigned.status, 200);
+  assert.deepEqual(assigned.body, expected);
+
+  const invalidBodies = [
+    {},
+    { objectiveId: "" },
+    { objectiveId: "abc" },
+    { objectiveId: ` ${objective.body.id} ` },
+    { objectiveId: 123 },
+    { objectiveId: false },
+    { objectiveId: {} },
+    { objectiveId: [] },
+  ];
+  const cases = [
+    ...invalidBodies.map((body) => ({
+      body,
+      status: 400,
+      error: "El objetivo debe ser un UUID valido o null",
+    })),
+    {
+      body: { objectiveId: randomUUID() },
+      status: 404,
+      error: "El objetivo no existe",
+    },
+  ];
+
+  for (const { body, status, error } of cases) {
+    const response = await request(app)
+      .patch(`/tasks/${id}/objective`)
+      .send(body);
+    assert.equal(response.status, status, JSON.stringify(body));
+    assert.deepEqual(response.body, { error });
+
+    const listed = await request(app).get("/tasks");
+    assert.equal(listed.status, 200);
+    assert.deepEqual(
+      listed.body.find((task: { id: string }) => task.id === id),
+      expected,
+    );
+  }
+
+  const edited = await request(app)
+    .patch(`/tasks/${id}`)
+    .send({ title: updatedTitle });
+  assert.equal(edited.status, 200);
+  assert.deepEqual(edited.body, { ...expected, title: updatedTitle });
+
+  const marked = await request(app)
+    .patch(`/tasks/${id}/importance`)
+    .send({ isImportant: true });
+  assert.equal(marked.status, 200);
+  const finalExpected = { ...expected, title: updatedTitle, isImportant: true };
+  assert.deepEqual(marked.body, finalExpected);
+
+  const listed = await request(app).get("/tasks");
+  assert.equal(listed.status, 200);
+  assert.deepEqual(
+    listed.body.find((task: { id: string }) => task.id === id),
+    finalExpected,
+  );
+});
+
 test("GET /health responde 200 y status ok", async () => {
   const response = await request(app).get("/health");
 
@@ -55,6 +167,7 @@ test("crea una tarea y la devuelve al listar", async (t) => {
 
   assert.equal(created.status, 201);
   assert.equal(created.body.isImportant, false);
+  assert.equal(created.body.objectiveId, null);
   assert.equal(typeof created.body.id, "string");
   assert.equal(created.body.title, title);
   assert.equal(typeof created.body.createdAt, "string");
@@ -96,6 +209,7 @@ test("edita el titulo y conserva el id y la fecha", async (t) => {
     id,
     title: updatedTitle,
     isImportant: false,
+    objectiveId: null,
     createdAt,
   });
 
@@ -587,5 +701,69 @@ test("rechaza fechas objetivo invalidas sin crear registros", async (t) => {
     );
 
     assert.equal(stored.rows.length, 0);
+  }
+});
+
+test("asigna, cambia y quita el objetivo conservando los otros datos", async (t) => {
+  const taskTitle = `Tarea asociada ${randomUUID()}`;
+  const objectiveTitle = `Objetivo asociado ${randomUUID()}`;
+  const secondObjectiveTitle = `Segundo objetivo ${randomUUID()}`;
+
+  t.after(async () => {
+    await pool.query("DELETE FROM public.tasks WHERE title = $1", [taskTitle]);
+    await pool.query(
+      "DELETE FROM public.objectives WHERE title IN ($1, $2)",
+      [objectiveTitle, secondObjectiveTitle],
+    );
+  });
+
+  const objective = await request(app).post("/objectives").send({
+    title: objectiveTitle,
+    successCriterion: "Completar la practica",
+    period: "weekly",
+  });
+
+  assert.equal(objective.status, 201);
+
+  const secondObjective = await request(app).post("/objectives").send({
+    title: secondObjectiveTitle,
+    successCriterion: "Completar otra practica",
+    period: "monthly",
+  });
+  assert.equal(secondObjective.status, 201);
+
+  const created = await request(app).post("/tasks").send({ title: taskTitle });
+
+  assert.equal(created.status, 201);
+  assert.equal(created.body.objectiveId, null);
+
+  for (const objectiveId of [
+    objective.body.id,
+    objective.body.id,
+    secondObjective.body.id,
+    null,
+    null,
+  ]) {
+    const updated = await request(app)
+      .patch(`/tasks/${created.body.id}/objective`)
+      .send({ objectiveId });
+
+    const expected = {
+      ...created.body,
+      objectiveId,
+    };
+
+    assert.equal(updated.status, 200);
+    assert.deepEqual(updated.body, expected);
+
+    const listed = await request(app).get("/tasks");
+
+    assert.equal(listed.status, 200);
+
+    const savedTask = listed.body.find(
+      (task: { id: string }) => task.id === created.body.id,
+    );
+
+    assert.deepEqual(savedTask, expected);
   }
 });

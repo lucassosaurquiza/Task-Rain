@@ -210,16 +210,41 @@ No incorporar NestJS en esta etapa.
 - Creación y listado de tareas, edición de título y cambio de importancia.
 - Creación y listado de objetivos con motivación, recompensa y fecha opcionales.
 - Validación del calendario en una función independiente de Express y PostgreSQL.
-- Cuatro migraciones SQL versionadas y aplicadas manualmente.
+- Cinco migraciones SQL versionadas y aplicadas manualmente.
+- Asociación actual opcional de tareas con objetivos mediante PATCH /tasks/:id/objective.
 - Pruebas con Node Test Runner, Supertest y task_rain_test.
 - Frontend con localStorage, todavía separado de la API.
 
 ### Consecuencias y pendientes
 
 - Integrar el frontend y definir la migración de sus datos.
-- Persistir asociaciones, semanas y compromisos.
+- Persistir semanas y compromisos con sus asociaciones históricas.
 - Mantener la lógica de negocio independiente de React.
 - Implementar cierres sin depender del navegador.
 - Resolver las políticas pendientes antes de implementarlas.
 - Automatizar migraciones e incorporar autenticación y autorización
   antes del uso multiusuario.
+
+## D10 — Objetivo actual opcional por tarea
+
+Estado: aceptada el 16 de noviembre de 2026; asociación actual implementada
+en la API. Compromisos e historial semanal pendientes.
+
+### Decisión
+
+- Cada tarea puede tener cero o un objetivo actual.
+- Un objetivo puede agrupar muchas tareas.
+- El objetivo puede asignarse antes de pasar la tarea a Hoy.
+- Asignarlo no crea un compromiso ni genera estadísticas por sí mismo.
+- El compromiso semanal conserva su propio objetivo; cambiar la asociación
+  actual de la tarea no modifica los compromisos anteriores.
+
+### Diseño técnico implementado
+
+La migración 005 agrega tasks.objective_id como UUID nullable y clave foránea hacia
+objectives.id. La columna representa la asociación actual, no el historial.
+No se necesita una tabla intermedia para múltiples objetivos simultáneos.
+La clave foránea verifica existencia; no verifica que el objetivo esté en curso.
+La política de eliminación sigue pendiente según P03; ON DELETE RESTRICT
+impide borrar objetivos asociados. El endpoint acepta un UUID o null explícito,
+no exige un estado del objetivo y no incorpora la tarea a Hoy.

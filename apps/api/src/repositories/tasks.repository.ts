@@ -6,6 +6,7 @@ export async function listTasks() {
       id,
       title,
      is_important as "isImportant",
+     objective_id AS "objectiveId",
      created_at as "createdAt"
      FROM public.tasks
      ORDER BY created_at DESC, id DESC
@@ -19,6 +20,7 @@ export async function createTask(title: string) {
     `INSERT INTO public.tasks (title)
      VALUES ($1)
      RETURNING id, title, is_important AS "isImportant",
+     objective_id AS "objectiveId",
                created_at AS "createdAt"`,
     [title],
   );
@@ -32,6 +34,7 @@ export async function updateTaskTitle(id: string, title: string) {
      SET title = $1
      WHERE id = $2
      RETURNING id, title, is_important AS "isImportant",
+     objective_id AS "objectiveId",
                created_at AS "createdAt"`,
     [title, id],
   );
@@ -45,8 +48,26 @@ export async function updateTaskImportance(id: string, isImportant: boolean) {
      SET is_important = $1
      WHERE id = $2
      RETURNING id, title, is_important AS "isImportant",
+     objective_id AS "objectiveId",
                created_at AS "createdAt"`,
     [isImportant, id],
+  );
+
+  return result.rows[0] ?? null;
+}
+
+export async function updateTaskObjective(
+  id: string,
+  objectiveId: string | null,
+) {
+  const result = await pool.query(
+    `UPDATE public.tasks
+     SET objective_id = $1
+     WHERE id = $2
+     RETURNING id, title, is_important AS "isImportant",
+               objective_id AS "objectiveId",
+               created_at AS "createdAt"`,
+    [objectiveId, id],
   );
 
   return result.rows[0] ?? null;
