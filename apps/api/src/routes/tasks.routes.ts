@@ -5,6 +5,8 @@ import {
   updateTaskTitle,
   updateTaskImportance,
 } from "../repositories/tasks.repository.js";
+import { isValidUuid } from "../validation/uuid.js";
+import { validateTaskTitle } from "../validation/task.js";
 
 export const taskRouter = Router();
 
@@ -22,17 +24,16 @@ taskRouter.get("/", async (_req, res) => {
 });
 
 taskRouter.post("/", async (req, res) => {
-  const title: unknown = req.body?.title;
+  const validation = validateTaskTitle(req.body?.title);
 
-  if (typeof title !== "string" || title.trim().length === 0) {
+  if (!validation.ok) {
     res.status(400).json({
-      error: "El titulo debe ser un texto no vacio",
+      error: validation.error,
     });
     return;
   }
-
   try {
-    const task = await createTask(title.trim());
+    const task = await createTask(validation.data);
     res.status(201).json(task);
   } catch (error) {
     console.error("Error al crear tarea:", error);
@@ -44,27 +45,25 @@ taskRouter.post("/", async (req, res) => {
 
 taskRouter.patch("/:id", async (req, res) => {
   const { id } = req.params;
-  const title: unknown = req.body?.title;
 
-  const uuidPattern =
-    /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
-
-  if (!uuidPattern.test(id)) {
+  if (!isValidUuid(id)) {
     res.status(400).json({
       error: "El identificador debe ser un UUID valido",
     });
     return;
   }
 
-  if (typeof title !== "string" || title.trim().length === 0) {
+  const validation = validateTaskTitle(req.body?.title);
+
+  if (!validation.ok) {
     res.status(400).json({
-      error: "El titulo debe ser un texto no vacio",
+      error: validation.error,
     });
     return;
   }
 
   try {
-    const task = await updateTaskTitle(id, title.trim());
+    const task = await updateTaskTitle(id, validation.data);
 
     if (task === null) {
       res.status(404).json({
@@ -87,10 +86,7 @@ taskRouter.patch("/:id/importance", async (req, res) => {
   const { id } = req.params;
   const isImportant: unknown = req.body?.isImportant;
 
-  const uuidPattern =
-    /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
-
-  if (!uuidPattern.test(id)) {
+  if (!isValidUuid(id)) {
     res.status(400).json({
       error: "El identificador debe ser un UUID valido",
     });

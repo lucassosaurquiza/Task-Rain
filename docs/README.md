@@ -41,7 +41,9 @@ Cada funcionalidad tiene además una referencia a su estado de implementación.
    ya son independientes de HTTP y PostgreSQL; POST utiliza el de objetivos.
    Las consultas están separadas en objectives.repository.ts y
    tasks.repository.ts; las rutas coordinan la validación y las respuestas
-   HTTP. Las validaciones de tareas todavía permanecen dentro de sus rutas.
+   HTTP. Las reglas de UUID y título de tareas están compartidas en
+   validation/uuid.ts y validation/task.ts. La comprobación del booleano
+   isImportant permanece en su ruta.
 4. Implementar semanas y compromisos vinculados a objetivos,
    evitando duplicados por tarea y semana.
 5. Implementar el cierre semanal y la conservación del historial.

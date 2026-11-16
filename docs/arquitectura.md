@@ -56,6 +56,12 @@ Referencias:
   Si se envía, debe ser una fecha real YYYY-MM-DD entre 0001 y 9999.
   Se rechazan texto vacío, espacios y fecha con hora. No se prohíben fechas pasadas.
 - validation/date.ts contiene isValidDateOnly, independiente de HTTP y SQL.
+- validation/uuid.ts contiene isValidUuid, compartido por ambos PATCH de
+  tareas. Comprueba el formato del identificador, no su existencia en la base.
+- validation/task.ts contiene validateTaskTitle, compartido por POST /tasks
+  y PATCH /tasks/:id. Recibe unknown y devuelve el título recortado o un error.
+  Las rutas conservan las respuestas HTTP y validan el UUID antes del título
+  al editar. La comprobación del booleano isImportant sigue en su ruta.
 - validation/objective.ts contiene validateCreateObjective: recibe unknown,
   valida y normaliza los campos, y consulta el validador de fechas.
   Devuelve { ok: true, data } o { ok: false, error }, sin modificar la entrada.
