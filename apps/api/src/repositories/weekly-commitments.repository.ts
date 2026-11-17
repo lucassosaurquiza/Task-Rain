@@ -59,3 +59,33 @@ export async function findWeeklyCommitment(
 
   return result.rows[0] ?? null;
 }
+
+type WeeklyCommitmentListItem = WeeklyCommitment & {
+  taskTitle: string;
+  objectiveTitle: string;
+};
+
+export async function listWeeklyCommitments(
+  client: PoolClient,
+  weekStartsAt: Date,
+): Promise<WeeklyCommitmentListItem[]> {
+  const result = await client.query<WeeklyCommitmentListItem>(
+    `SELECT
+       c.id,
+       c.task_id AS "taskId",
+       t.title AS "taskTitle",
+       c.objective_id AS "objectiveId",
+       o.title AS "objectiveTitle",
+       c.week_id AS "weekId",
+       c.added_at AS "addedAt"
+     FROM public.weekly_commitments AS c
+     JOIN public.weeks AS w ON w.id = c.week_id
+     JOIN public.tasks AS t ON t.id = c.task_id
+     JOIN public.objectives AS o ON o.id = c.objective_id
+     WHERE w.starts_at = $1
+     ORDER BY c.added_at ASC, c.id ASC`,
+    [weekStartsAt],
+  );
+
+  return result.rows;
+}

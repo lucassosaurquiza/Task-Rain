@@ -77,9 +77,16 @@ La suite completa ejecuta app.test.ts, date.test.ts y objective-validation.test.
 
 ## Cobertura actual
 
-La suite contiene 40 pruebas: 34 de integración y 6 unitarias.
+La suite contiene 42 pruebas: 36 de integración y 6 unitarias.
 
 Cobertura de semanas y compromisos:
+
+- El repositorio devuelve [] para una semana inexistente sin crearla, y para
+  una semana existente sin compromisos. Separa semanas y ordena por id cuando
+  addedAt coincide; usa el objetivo del compromiso aunque la tarea tenga otro.
+- GET /weekly-commitments/current devuelve los registros actuales sin modificar
+  semanas ni compromisos. El caso con datos verifica títulos y objetivo original
+  incluso después de desvincular el objetivo actual y desmarcar importancia.
 
 - Límites de lunes en Buenos Aires, instante anterior al cambio y cambio de año.
 - El calendario semanal no depende de la zona horaria de la conexión PostgreSQL.
@@ -157,7 +164,7 @@ de integración existentes también pasan por el validador desde la ruta.
 Aceptar períodos en una prueba unitaria no comprueba su persistencia;
 la creación válida por HTTP está cubierta con monthly y weekly.
 
-Última ejecución verificada: 16 de noviembre de 2026, 40 aprobadas,
+Última ejecución verificada: 17 de noviembre de 2026, 42 aprobadas,
 0 fallidas. Actualizar este resultado cuando cambie la suite.
 
 Antes de las pruebas de integración se verifica el entorno y la base real.
@@ -170,5 +177,5 @@ Si el proceso se interrumpe abruptamente, pueden quedar datos
 de prueba.
 
 No hay cobertura de cambios de estado de objetivos, retiro o finalización
-de compromisos, listado de Hoy ni cierres semanales. La suite
+de compromisos ni cierres semanales. La suite
 tampoco simula fallos de PostgreSQL para comprobar las respuestas 500.

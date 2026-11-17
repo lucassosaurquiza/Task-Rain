@@ -14,10 +14,11 @@ Referencia de la implementación actual:
 - La API permite crear y listar objetivos con sus campos obligatorios y opcionales.
 - El frontend todavía no consume la API.
 - La API permite asignar, cambiar y quitar el objetivo actual de una tarea.
-- Existen 40 pruebas automatizadas: 34 de integración y 6 unitarias
+- Existen 42 pruebas automatizadas: 36 de integración y 6 unitarias
   de fechas y validación de objetivos.
 - La API crea y reutiliza compromisos semanales con su objetivo original.
-- El listado de Hoy, los retiros, la finalización y los cierres siguen pendientes.
+- La API lista los compromisos de la semana actual; falta conectarlos con Hoy
+  en el frontend. Retiros, finalización y cierres siguen pendientes.
 - La pantalla de objetivos y el dashboard todavía no representan
   el flujo semanal completo con datos reales.
 
@@ -111,6 +112,12 @@ nueva exige importancia y objetivo in_progress. Devuelve 201 al crear,
 200 al repetir, 400 ante UUID inválido, 404 si falta la tarea y 409 si no
 cumple las condiciones. Repetir devuelve el compromiso original incluso
 si luego cambia la importancia o el objetivo actual de la tarea.
+
+GET /weekly-commitments/current permite consultar la semana actual sin body.
+Devuelve 200 con un arreglo, vacío si no hay compromisos. Incluye taskTitle y
+objectiveTitle leídos de sus registros actuales, conserva el objetivo asociado
+al compromiso y ordena por addedAt e id ascendentes. Consultar no crea semanas
+ni compromisos y no inicia el seguimiento. La integración visual sigue pendiente.
 
 - Seguir el recorrido Lluvia → Importantes → Hoy.
 - Exigir un objetivo en curso y confirmar la incorporación.
