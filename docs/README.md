@@ -44,7 +44,9 @@ Cada funcionalidad tiene además una referencia a su estado de implementación.
    HTTP. Las reglas de UUID y título de tareas están compartidas en
    validation/uuid.ts y validation/task.ts. La comprobación del booleano
    isImportant permanece en su ruta.
-4. Continuar con retiro y finalización e integrar el listado semanal con Hoy.
+4. Continuar con finalización e integrar el listado semanal con Hoy.
+   Retiro y reincorporación conservan el compromiso original; active=true
+   permite consultar solo los no retirados.
    GET /weekly-commitments/current ya consulta compromisos sin crear registros.
    La creación de
    compromisos vinculados a objetivos ya está implementada, con transacción,

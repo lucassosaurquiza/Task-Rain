@@ -3,7 +3,7 @@ import { app } from "../app.js";
 import { pool } from "../db.js";
 import { randomUUID } from "node:crypto";
 import { getWeekBounds, getOrCreateWeek } from "../repositories/weeks.repository.js";
-import { getOrCreateWeeklyCommitment, listWeeklyCommitments } from "../repositories/weekly-commitments.repository.js";
+import { getOrCreateWeeklyCommitment, listWeeklyCommitments, withdrawWeeklyCommitment, findWeeklyCommitment } from "../repositories/weekly-commitments.repository.js";
 
 import assert from "node:assert/strict";
 import request from "supertest";
@@ -144,7 +144,7 @@ test("reutiliza el compromiso original y permite otro en la semana siguiente", a
     };
     const first = await getOrCreateWeeklyCommitment(client, input);
     assert.equal(first.created, true);
-    assert.deepEqual(first.commitment, { id: first.commitment.id, ...input });
+    assert.deepEqual(first.commitment, { id: first.commitment.id, ...input, withdrawnAt: null });
 
     const repeated = await getOrCreateWeeklyCommitment(client, {
       ...input,
@@ -171,6 +171,18 @@ test("reutiliza el compromiso original y permite otro en la semana siguiente", a
       [input.taskId],
     );
     assert.equal(stored.rows.length, 2);
+    const withdrawnAt = new Date(week.startsAt.getTime() + 2000);
+    const withdrawn = await withdrawWeeklyCommitment(client, input.taskId, week.startsAt, withdrawnAt);
+    assert.deepEqual(withdrawn, { ...first.commitment, withdrawnAt });
+    const withdrawnAgain = await withdrawWeeklyCommitment(
+      client, input.taskId, week.startsAt, new Date(withdrawnAt.getTime() + 1000),
+    );
+    assert.deepEqual(withdrawnAgain, withdrawn);
+    assert.deepEqual(await findWeeklyCommitment(client, input.taskId, nextWeek.id), next.commitment);
+    assert.equal(await withdrawWeeklyCommitment(client, randomUUID(), week.startsAt, withdrawnAt), null);
+    assert.equal(await withdrawWeeklyCommitment(client, input.taskId, nextWeek.endsAt, withdrawnAt), null);
+    const remaining = await client.query("SELECT id FROM public.weekly_commitments WHERE task_id = $1", [input.taskId]);
+    assert.equal(remaining.rowCount, 2);
   } finally {
     try {
       await client.query("ROLLBACK");
@@ -237,7 +249,7 @@ test("GET current responde con los compromisos actuales sin modificar semanas ni
   const expected = await pool.query(
     `SELECT c.id, c.task_id AS "taskId", t.title AS "taskTitle",
       c.objective_id AS "objectiveId", o.title AS "objectiveTitle",
-      c.week_id AS "weekId", c.added_at AS "addedAt"
+      c.week_id AS "weekId", c.added_at AS "addedAt", c.withdrawn_at AS "withdrawnAt"
      FROM public.weekly_commitments c
      JOIN public.weeks w ON w.id = c.week_id
      JOIN public.tasks t ON t.id = c.task_id
@@ -248,6 +260,14 @@ test("GET current responde con los compromisos actuales sin modificar semanas ni
   assert.deepEqual(response.body, JSON.parse(JSON.stringify(expected.rows)));
   assert.deepEqual((await pool.query("SELECT * FROM public.weeks ORDER BY id")).rows, weeksBefore.rows);
   assert.deepEqual((await pool.query("SELECT * FROM public.weekly_commitments ORDER BY id")).rows, commitmentsBefore.rows);
+});
+
+test("GET current rechaza valores active invalidos y repetidos", async () => {
+  for (const query of ["active=", "active=1", "active=TRUE", "active=null", "active=si", "active=true&active=false", "active=true&active=true"]) {
+    const response = await request(app).get(`/weekly-commitments/current?${query}`);
+    assert.equal(response.status, 400, query);
+    assert.deepEqual(response.body, { error: "active debe ser true o false" });
+  }
 });
 
 test("POST commitments rechaza UUID invalido y tarea inexistente", async () => {
@@ -298,6 +318,26 @@ test("POST commitments valida las reglas y revierte las escrituras rechazadas", 
   assert.equal(commitments.rowCount, 0);
   const afterWeeks = await pool.query("SELECT id FROM public.weeks ORDER BY id");
   assert.deepEqual(afterWeeks.rows, beforeWeeks.rows);
+});
+
+test("PATCH withdraw rechaza ID invalido y compromisos inexistentes sin crear semanas", async (t) => {
+  const taskId = randomUUID();
+  t.after(async () => {
+    await pool.query("DELETE FROM public.tasks WHERE id = $1", [taskId]);
+  });
+  const beforeWeeks = await pool.query("SELECT * FROM public.weeks ORDER BY id");
+  const invalid = await request(app).patch("/tasks/abc/commitments/current/withdraw");
+  assert.equal(invalid.status, 400);
+  const missingTask = await request(app).patch(`/tasks/${taskId}/commitments/current/withdraw`);
+  assert.equal(missingTask.status, 404);
+  await pool.query("INSERT INTO public.tasks (id, title) VALUES ($1, $2)", [taskId, `Sin compromiso ${taskId}`]);
+  const missingCommitment = await request(app).patch(`/tasks/${taskId}/commitments/current/withdraw`);
+  assert.equal(missingCommitment.status, 404);
+  assert.deepEqual(missingCommitment.body, {
+    error: "No existe un compromiso de esta tarea en la semana actual",
+  });
+  assert.deepEqual((await pool.query("SELECT * FROM public.weeks ORDER BY id")).rows, beforeWeeks.rows);
+  assert.equal((await pool.query("SELECT id FROM public.weekly_commitments WHERE task_id = $1", [taskId])).rowCount, 0);
 });
 
 test("POST commitments crea una sola vez ante solicitudes simultaneas y conserva el original", async (t) => {
@@ -352,7 +392,7 @@ test("POST commitments crea una sola vez ante solicitudes simultaneas y conserva
 
   const stored = await pool.query(
     `SELECT id, task_id AS "taskId", objective_id AS "objectiveId",
-            week_id AS "weekId", added_at AS "addedAt"
+            week_id AS "weekId", added_at AS "addedAt", withdrawn_at AS "withdrawnAt"
      FROM public.weekly_commitments WHERE task_id = $1`, [taskId],
   );
   assert.equal(stored.rowCount, 1);
@@ -379,6 +419,56 @@ test("POST commitments crea una sola vez ante solicitudes simultaneas y conserva
   assert.deepEqual(listed.body.filter((item: { taskId: string }) => item.taskId === taskId), [{
     ...original, taskTitle: taskRow.rows[0].title, objectiveTitle: objectiveRow.rows[0].title,
   }]);
+  const withdrawalUrl = `/tasks/${taskId}/commitments/current/withdraw`;
+  const withdrawals = await Promise.all([
+    request(app).patch(withdrawalUrl), request(app).patch(withdrawalUrl),
+  ]);
+  for (const response of withdrawals) assert.equal(response.status, 200);
+  assert.deepEqual(withdrawals[0].body, withdrawals[1].body);
+  const withdrawn = withdrawals[0].body;
+  assert.equal(typeof withdrawn.withdrawnAt, "string");
+  assert.ok(Number.isFinite(Date.parse(withdrawn.withdrawnAt)));
+  assert.deepEqual(withdrawn, { ...original, withdrawnAt: withdrawn.withdrawnAt });
+  const storedAfter = await pool.query(
+    "SELECT id, withdrawn_at FROM public.weekly_commitments WHERE task_id = $1", [taskId],
+  );
+  assert.equal(storedAfter.rowCount, 1);
+  assert.equal(storedAfter.rows[0].withdrawn_at.toISOString(), withdrawn.withdrawnAt);
+  const listedAfter = await request(app).get("/weekly-commitments/current");
+  assert.equal(listedAfter.status, 200);
+  assert.deepEqual(listedAfter.body.filter((item: { taskId: string }) => item.taskId === taskId), [{
+    ...withdrawn, taskTitle: taskRow.rows[0].title, objectiveTitle: objectiveRow.rows[0].title,
+  }]);
+  const allAfterWithdrawal = await request(app).get("/weekly-commitments/current?active=false");
+  assert.equal(allAfterWithdrawal.status, 200);
+  assert.deepEqual(allAfterWithdrawal.body, listedAfter.body);
+  const activeAfterWithdrawal = await request(app).get("/weekly-commitments/current?active=true");
+  assert.equal(activeAfterWithdrawal.status, 200);
+  assert.deepEqual(activeAfterWithdrawal.body,
+    listedAfter.body.filter((item: { withdrawnAt: string | null }) => item.withdrawnAt === null));
+  assert.equal(activeAfterWithdrawal.body.some((item: { taskId: string }) => item.taskId === taskId), false);
+  const restorations = await Promise.all([request(app).post(url), request(app).post(url)]);
+  for (const response of restorations) {
+    assert.equal(response.status, 200);
+    assert.deepEqual(response.body, original);
+    assert.equal(response.body.withdrawnAt, null);
+  }
+  const storedRestored = await pool.query(
+    "SELECT id, withdrawn_at FROM public.weekly_commitments WHERE task_id = $1", [taskId],
+  );
+  assert.equal(storedRestored.rowCount, 1);
+  assert.equal(storedRestored.rows[0].id, original.id);
+  assert.equal(storedRestored.rows[0].withdrawn_at, null);
+  const listedRestored = await request(app).get("/weekly-commitments/current");
+  assert.equal(listedRestored.status, 200);
+  assert.deepEqual(listedRestored.body.filter((item: { taskId: string }) => item.taskId === taskId), [{
+    ...original, taskTitle: taskRow.rows[0].title, objectiveTitle: objectiveRow.rows[0].title,
+  }]);
+  const activeRestored = await request(app).get("/weekly-commitments/current?active=true");
+  assert.equal(activeRestored.status, 200);
+  assert.deepEqual(activeRestored.body,
+    listedRestored.body.filter((item: { withdrawnAt: string | null }) => item.withdrawnAt === null));
+  assert.equal(activeRestored.body.filter((item: { taskId: string }) => item.taskId === taskId).length, 1);
 });
 
 test("PATCH objective rechaza un identificador de tarea invalido", async () => {

@@ -27,6 +27,7 @@ En una base nueva, ejecutar una vez y en este orden:
 5. apps/api/db/migrations/005_add_task_objective.sql
 6. apps/api/db/migrations/006_create_weeks.sql
 7. apps/api/db/migrations/007_create_weekly_commitments.sql
+8. apps/api/db/migrations/008_add_commitment_withdrawal.sql
 
 En una base existente, ejecutar solamente las migraciones
 pendientes, respetando el orden.
@@ -77,9 +78,18 @@ La suite completa ejecuta app.test.ts, date.test.ts y objective-validation.test.
 
 ## Cobertura actual
 
-La suite contiene 42 pruebas: 36 de integración y 6 unitarias.
+La suite contiene 44 pruebas: 38 de integración y 6 unitarias.
 
 Cobertura de semanas y compromisos:
+
+- Retiro repetido conserva su fecha, objetivo e identidad; no modifica el
+  compromiso de otra semana. Un compromiso inexistente devuelve null en el repositorio.
+- PATCH de retiro valida UUID, devuelve 404 para tarea o compromiso inexistente
+  y no crea semanas. Dos retiros simultáneos conservan una sola fecha y registro.
+- Reincorporaciones simultáneas devuelven 200, withdrawnAt null y los datos
+  originales, incluso si cambió la asociación actual o la importancia de la tarea.
+- active=false coincide con el listado sin filtro; active=true excluye el retirado
+  y lo incluye una sola vez al reincorporarlo. Valores inválidos o repetidos dan 400.
 
 - El repositorio devuelve [] para una semana inexistente sin crearla, y para
   una semana existente sin compromisos. Separa semanas y ordena por id cuando
@@ -164,7 +174,7 @@ de integración existentes también pasan por el validador desde la ruta.
 Aceptar períodos en una prueba unitaria no comprueba su persistencia;
 la creación válida por HTTP está cubierta con monthly y weekly.
 
-Última ejecución verificada: 17 de noviembre de 2026, 42 aprobadas,
+Última ejecución verificada: 17 de noviembre de 2026, 44 aprobadas,
 0 fallidas. Actualizar este resultado cuando cambie la suite.
 
 Antes de las pruebas de integración se verifica el entorno y la base real.
@@ -176,6 +186,6 @@ quedan sin compromisos. Comprueba el permiso DELETE antes de crear esos datos.
 Si el proceso se interrumpe abruptamente, pueden quedar datos
 de prueba.
 
-No hay cobertura de cambios de estado de objetivos, retiro o finalización
+No hay cobertura de cambios de estado de objetivos o finalización
 de compromisos ni cierres semanales. La suite
 tampoco simula fallos de PostgreSQL para comprobar las respuestas 500.
