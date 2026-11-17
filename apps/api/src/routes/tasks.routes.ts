@@ -11,6 +11,7 @@ import {
   validateTaskTitle,
   validateTaskObjective,
 } from "../validation/task.js";
+import { commitTaskToCurrentWeek } from "../services/weekly-commitments.service.js";
 
 export const taskRouter = Router();
 
@@ -172,6 +173,45 @@ taskRouter.patch("/:id/objective", async (req, res) => {
 
     res.status(500).json({
       error: "No se pudo cambiar el objetivo de la tarea",
+    });
+  }
+});
+
+taskRouter.post("/:id/commitments", async (req, res) => {
+  const { id } = req.params;
+
+  if (!isValidUuid(id)) {
+    res.status(400).json({
+      error: "El identificador debe ser un UUID valido",
+    });
+    return;
+  }
+
+  try {
+    const result = await commitTaskToCurrentWeek(id);
+
+    if ("error" in result) {
+      const messages = {
+        task_not_found: "La tarea no existe",
+        task_not_important: "La tarea debe estar marcada como importante",
+        objective_required: "La tarea debe tener un objetivo asignado",
+        objective_not_in_progress: "El objetivo debe estar en progreso",
+      };
+
+      const status = result.error === "task_not_found" ? 404 : 409;
+
+      res.status(status).json({
+        error: messages[result.error],
+      });
+      return;
+    }
+
+    res.status(result.created ? 201 : 200).json(result.commitment);
+  } catch (error) {
+    console.error("Error al crear compromiso semanal:", error);
+
+    res.status(500).json({
+      error: "No se pudo crear el compromiso semanal",
     });
   }
 });

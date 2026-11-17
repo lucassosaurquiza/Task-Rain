@@ -15,7 +15,7 @@ Fuente central de reglas para producto, funcionalidades y arquitectura.
   antes del cierre respecto del total comprometido.
 - Semana: período desde el lunes a las 00:00, incluido,
   hasta el lunes siguiente a las 00:00, excluido.
-  La zona horaria está pendiente de definición.
+  La zona horaria inicial es America/Argentina/Buenos_Aires, según D11.
 - Cierre semanal: proceso que conserva el resultado histórico,
   devuelve las incompletas a Importantes y retira de Hoy
   las tareas de la semana cerrada.
@@ -133,12 +133,22 @@ Estado: pendiente de redefinición.
 
 ## R07 — Cierre semanal e historial
 
-Estado: aceptado; zona horaria pendiente de definición.
+Estado: aceptado; calendario e inicio del seguimiento definidos según D11.
 
 - La semana comienza el lunes a las 00:00, incluido.
 - Termina el lunes siguiente a las 00:00, excluido.
 - Una acción realizada exactamente en el límite pertenece
   a la nueva semana.
+- Los límites se calculan en America/Argentina/Buenos_Aires,
+  configurada en el backend para esta primera versión.
+- El seguimiento empieza al confirmar la primera incorporación a Hoy.
+  No se generan semanas ni incumplimientos anteriores a ese momento.
+- Si la primera incorporación ocurre con la semana ya iniciada, se registra
+  desde ese instante hasta el lunes siguiente. El cumplimiento se calcula
+  sobre los compromisos asumidos, sin inventar obligaciones por días previos.
+- Desde entonces el seguimiento continúa aunque no se abra la aplicación.
+  Las semanas posteriores sin compromisos se conservan como negativas.
+- Los rangos de clasificación y las rachas siguen pendientes según P09.
 
 Al cerrar:
 
@@ -207,8 +217,11 @@ y tratamiento de semanas negativas sin compromisos.
 
 ### P05 — Calendario
 
-El límite semanal está resuelto en R07.
-Definir zona horaria, inicio del seguimiento y semanas parciales.
+Resuelto para la primera versión según D11 y R07: zona fija
+America/Argentina/Buenos_Aires, inicio en la primera incorporación
+confirmada a Hoy y primera semana parcial hasta el lunes siguiente.
+El seguimiento continúa desde entonces, incluidas semanas sin actividad.
+La configuración por usuario queda para la etapa multiusuario.
 
 ### P06 — Objetivos y reconocimientos
 

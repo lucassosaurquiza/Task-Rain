@@ -25,6 +25,8 @@ En una base nueva, ejecutar una vez y en este orden:
 3. apps/api/db/migrations/003_add_task_importance.sql
 4. apps/api/db/migrations/004_create_objectives.sql
 5. apps/api/db/migrations/005_add_task_objective.sql
+6. apps/api/db/migrations/006_create_weeks.sql
+7. apps/api/db/migrations/007_create_weekly_commitments.sql
 
 En una base existente, ejecutar solamente las migraciones
 pendientes, respetando el orden.
@@ -34,6 +36,7 @@ Despues, solo en la base de pruebas, ejecutar:
 ```sql
 GRANT DELETE ON TABLE public.tasks TO task_rain_app;
 GRANT DELETE ON TABLE public.objectives TO task_rain_app;
+GRANT DELETE ON TABLE public.weekly_commitments, public.weeks TO task_rain_app;
 ```
 
 Este permiso permite limpiar los datos creados por los tests.
@@ -63,7 +66,7 @@ npm test -w apps/api
 
 No hace falta iniciar Express: Supertest administra un servidor temporal.
 
-Para ejecutar únicamente las pruebas de calendario y validación de objetivos, sin PostgreSQL
+Para ejecutar únicamente las pruebas de fechas y validación de objetivos, sin PostgreSQL
 ni archivo de entorno:
 
 ```bash
@@ -74,7 +77,22 @@ La suite completa ejecuta app.test.ts, date.test.ts y objective-validation.test.
 
 ## Cobertura actual
 
-La suite contiene 33 pruebas: 27 de integración y 6 unitarias.
+La suite contiene 40 pruebas: 34 de integración y 6 unitarias.
+
+Cobertura de semanas y compromisos:
+
+- Límites de lunes en Buenos Aires, instante anterior al cambio y cambio de año.
+- El calendario semanal no depende de la zona horaria de la conexión PostgreSQL.
+- Crear y reutilizar semanas; comprobar que ROLLBACK elimina las nuevas.
+- Reutilizar el compromiso original, conservando objetivo y fecha; permitir otro
+  para la misma tarea en la semana siguiente mediante el repositorio.
+- POST /tasks/:id/commitments responde 400 ante UUID inválido y 404 si falta la tarea.
+- Rechaza con 409 tareas sin importancia, sin objetivo o con objetivo logrado;
+  no deja compromisos ni nuevas semanas por esos intentos rechazados.
+- Dos solicitudes simultáneas para la misma tarea devuelven 201 y 200, con
+  el mismo compromiso y una sola fila persistida.
+- Cambiar o quitar el objetivo actual y desmarcar importancia no modifica
+  el compromiso original al repetir la solicitud.
 
 - GET /health responde 200 con status ok.
 - POST /tasks rechaza títulos compuestos por espacios.
@@ -139,15 +157,18 @@ de integración existentes también pasan por el validador desde la ruta.
 Aceptar períodos en una prueba unitaria no comprueba su persistencia;
 la creación válida por HTTP está cubierta con monthly y weekly.
 
-Última ejecución verificada: 16 de noviembre de 2026, 33 aprobadas,
+Última ejecución verificada: 16 de noviembre de 2026, 40 aprobadas,
 0 fallidas. Actualizar este resultado cuando cambie la suite.
 
 Antes de las pruebas de integración se verifica el entorno y la base real.
 Las pruebas que crean tareas u objetivos eliminan sus propios registros
-mediante un título único o su identificador.
+mediante un título único o su identificador. Los tests de repositorio semanal
+usan ROLLBACK. El test HTTP de creación limpia sus compromisos antes de sus
+tareas y objetivos; elimina las semanas nuevas usadas por la prueba solo si
+quedan sin compromisos. Comprueba el permiso DELETE antes de crear esos datos.
 Si el proceso se interrumpe abruptamente, pueden quedar datos
 de prueba.
 
-No hay cobertura de cambios de estado de objetivos, compromisos
-ni cierres semanales. La suite
+No hay cobertura de cambios de estado de objetivos, retiro o finalización
+de compromisos, listado de Hoy ni cierres semanales. La suite
 tampoco simula fallos de PostgreSQL para comprobar las respuestas 500.

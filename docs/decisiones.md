@@ -190,7 +190,8 @@ Repetir el cierre no debe duplicar resultados ni efectos.
 - Presentación numérica de semanas vacías y efecto en agregaciones.
 - Mínimo semanal y condiciones para considerar positiva una semana.
 - Condiciones de racha y reconocimientos.
-- Zona horaria, inicio del seguimiento y semanas parciales.
+- Calendario resuelto posteriormente por D11; límites semanales implementados,
+  seguimiento continuo y cierres pendientes.
 - Agregación mensual y anual.
 - Reaperturas y correcciones de resultados cerrados.
 
@@ -210,7 +211,7 @@ No incorporar NestJS en esta etapa.
 - Creación y listado de tareas, edición de título y cambio de importancia.
 - Creación y listado de objetivos con motivación, recompensa y fecha opcionales.
 - Validación del calendario en una función independiente de Express y PostgreSQL.
-- Cinco migraciones SQL versionadas y aplicadas manualmente.
+- Siete migraciones SQL versionadas y aplicadas manualmente.
 - Asociación actual opcional de tareas con objetivos mediante PATCH /tasks/:id/objective.
 - Pruebas con Node Test Runner, Supertest y task_rain_test.
 - Frontend con localStorage, todavía separado de la API.
@@ -218,7 +219,8 @@ No incorporar NestJS en esta etapa.
 ### Consecuencias y pendientes
 
 - Integrar el frontend y definir la migración de sus datos.
-- Persistir semanas y compromisos con sus asociaciones históricas.
+- Completar retiro, finalización y consulta del historial de compromisos;
+  semanas y creación de compromisos ya están persistidos.
 - Mantener la lógica de negocio independiente de React.
 - Implementar cierres sin depender del navegador.
 - Resolver las políticas pendientes antes de implementarlas.
@@ -228,7 +230,8 @@ No incorporar NestJS en esta etapa.
 ## D10 — Objetivo actual opcional por tarea
 
 Estado: aceptada el 16 de noviembre de 2026; asociación actual implementada
-en la API. Compromisos e historial semanal pendientes.
+en la API. Los compromisos conservan su objetivo original; consulta del historial
+y cierre semanal pendientes.
 
 ### Decisión
 
@@ -248,3 +251,34 @@ La clave foránea verifica existencia; no verifica que el objetivo esté en curs
 La política de eliminación sigue pendiente según P03; ON DELETE RESTRICT
 impide borrar objetivos asociados. El endpoint acepta un UUID o null explícito,
 no exige un estado del objetivo y no incorpora la tarea a Hoy.
+
+## D11 — Calendario e inicio del seguimiento semanal
+
+Estado: aceptada el 16 de noviembre de 2026; implementación parcial.
+Los límites de semana y la incorporación transaccional están implementados y
+probados. Cada compromiso conserva addedAt. Falta completar la referencia de
+inicio del seguimiento, las semanas posteriores vacías y el cierre.
+
+### Decisión
+
+- Usar America/Argentina/Buenos_Aires como zona horaria fija configurada
+  en el backend durante esta primera versión.
+- Mantener los límites de lunes a las 00:00 hasta el lunes siguiente,
+  con inicio incluido y fin excluido.
+- Iniciar el seguimiento al confirmar la primera tarea en Hoy.
+  No generar semanas ni incumplimientos anteriores.
+- Registrar la primera semana parcial desde ese instante hasta el lunes
+  siguiente y calcular el cumplimiento sobre los compromisos asumidos.
+- Continuar el seguimiento aunque no se abra la aplicación. Las semanas
+  posteriores sin compromisos son negativas y permanecen en el historial.
+- No definir por esta decisión mínimos, rangos de clasificación ni rachas.
+
+### Consecuencias técnicas
+
+- Persistir el instante de inicio del seguimiento junto con la primera
+  incorporación exitosa; una petición fallida no debe iniciar el seguimiento.
+- Calcular los límites con la zona acordada, independientemente de la zona
+  del navegador o del servidor, y guardar instantes como TIMESTAMPTZ.
+- Conservar los límites históricos y contemplar semanas vacías en el cierre.
+- La configuración por usuario y los cambios de zona quedan para una etapa
+  posterior; la implementación actual todavía no es multiusuario.

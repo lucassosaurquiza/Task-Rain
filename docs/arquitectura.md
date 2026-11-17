@@ -8,7 +8,8 @@ para cumplir las reglas aprobadas.
 El backend ya utiliza Express, TypeScript y PostgreSQL.
 La API permite crear y listar tareas, editar sus títulos e importancia,
 y crear y listar objetivos con sus campos obligatorios y opcionales.
-Los compromisos semanales y cierres todavía no están implementados.
+La API también crea compromisos semanales vinculados al objetivo actual de la tarea.
+El listado de Hoy, los retiros, la finalización y los cierres siguen pendientes.
 
 Referencias:
 
@@ -43,7 +44,7 @@ Referencias:
   actualiza una tarea existente y conserva su fecha de creación.
 - PATCH /tasks/:id/importance recibe un booleano isImportant y conserva
   título, identificador y fecha. Repetir el valor mantiene el resultado.
-- La tabla tasks contiene id, title, is_important y created_at.
+- La tabla tasks contiene id, title, is_important, objective_id y created_at.
   is_important es obligatorio, comienza en false y se devuelve como isImportant.
 - GET /objectives lista objetivos por creación e identificador descendentes.
 - POST /objectives valida title, successCriterion y period; devuelve 201.
@@ -56,8 +57,8 @@ Referencias:
   Si se envía, debe ser una fecha real YYYY-MM-DD entre 0001 y 9999.
   Se rechazan texto vacío, espacios y fecha con hora. No se prohíben fechas pasadas.
 - validation/date.ts contiene isValidDateOnly, independiente de HTTP y SQL.
-- validation/uuid.ts contiene isValidUuid, compartido por ambos PATCH de
-  tareas. Comprueba el formato del identificador, no su existencia en la base.
+- validation/uuid.ts contiene isValidUuid, compartido por las rutas que reciben
+  un ID de tarea. Comprueba el formato, no su existencia en la base.
 - validation/task.ts contiene validateTaskTitle, compartido por POST /tasks
   y PATCH /tasks/:id. Recibe unknown y devuelve el título recortado o un error.
   Las rutas conservan las respuestas HTTP y validan el UUID antes del título
@@ -73,7 +74,8 @@ Referencias:
 - Las rutas de objetivos coordinan la validación y la persistencia y
   construyen la respuesta HTTP.
 - repositories/tasks.repository.ts contiene listTasks, createTask,
-  updateTaskTitle y updateTaskImportance. Las rutas de tareas conservan
+  updateTaskTitle, updateTaskImportance, updateTaskObjective y findTaskForCommitment.
+  Las rutas de tareas conservan
   las validaciones de entrada y las respuestas HTTP; ya no ejecutan SQL.
   Las funciones de actualización devuelven la tarea o null si no existe,
   y la ruta convierte ese null en una respuesta 404.
@@ -87,14 +89,31 @@ Referencias:
   ON DELETE RESTRICT y permiso UPDATE sobre la columna.
   Las respuestas de tareas incluyen objectiveId. La asociación no mueve
   la tarea a Hoy ni comprueba el estado del objetivo.
-- Las migraciones 001 a 005 están versionadas y se aplican manualmente.
+- POST /tasks/:id/commitments no requiere body: usa el objetivo actual y la hora
+  del backend. Devuelve 201 al crear y 200 al reutilizar el compromiso original.
+  Responde 400 ante UUID inválido, 404 si falta la tarea y 409 si una incorporación
+  nueva no tiene importancia u objetivo en progreso. Los fallos inesperados dan 500.
+- services/weekly-commitments.service.ts coordina las reglas y una transacción
+  READ COMMITTED con el mismo PoolClient para todos los repositorios.
+  Bloquea la tarea con FOR UPDATE OF t, obtiene la semana y busca un compromiso
+  existente antes de validar una incorporación nueva. COMMIT confirma todo;
+  ROLLBACK deshace los cambios, incluida una semana creada en un intento rechazado.
+  El bloqueo protege la tarea; no bloquea el estado del objetivo. Antes de agregar
+  cambios de estado de objetivos habrá que definir su coordinación concurrente.
+- weeks.repository.ts calcula límites en America/Argentina/Buenos_Aires y crea
+  o recupera la semana. weekly-commitments.repository.ts guarda o recupera el
+  compromiso sin reemplazar su objetivo ni addedAt ante una repetición.
+- Las migraciones 006 y 007 crean weeks y weekly_commitments, con restricciones
+  UNIQUE sobre starts_at y sobre (task_id, week_id), respectivamente.
+- Las migraciones 001 a 007 están versionadas y se aplican manualmente.
 - No hay autenticación ni separación de datos por usuario.
 
 ### Pruebas
 
 - Node Test Runner y Supertest.
 - Base separada task_rain_test.
-- 27 pruebas de integración de salud, tareas, importancia, objetivos y asociaciones.
+- 34 pruebas de integración de salud, tareas, objetivos, asociaciones,
+  calendario semanal y compromisos, incluida concurrencia sobre la misma tarea.
 - 6 pruebas unitarias de calendario y validación de objetivos,
   ejecutables sin PostgreSQL con test:unit.
 - Preparación y ejecución documentadas en pruebas-api.md.
@@ -123,9 +142,9 @@ para conservar un historial mínimo.
 
 ## Modelo conceptual propuesto
 
-Las tablas tasks y objectives están implementadas en PostgreSQL.
-La asociación actual entre tareas y objetivos está implementada.
-Las semanas y compromisos describen el modelo previsto, todavía no implementado.
+Las tablas tasks, objectives, weeks y weekly_commitments están implementadas.
+La asociación actual y la creación de compromisos están disponibles en la API.
+El modelo siguiente distingue los campos persistidos de las ampliaciones previstas.
 
 ### Tarea
 
@@ -146,8 +165,7 @@ La eliminación y las reaperturas requieren resolver P02 y P03.
 - Identidad, título, criterio de logro, período y estado.
 - Período semanal, mensual o anual.
 - Motivación, recompensa y fecha objetivo opcionales.
-- Puede tener varias tareas asociadas. Los compromisos todavía no están
-  implementados.
+- Puede tener varias tareas asociadas y compromisos que conservan su referencia.
 
 La creación y el listado básicos están implementados. Aunque la tabla
 admite los estados in_progress y achieved, no hay una ruta para cambiar
@@ -159,6 +177,10 @@ Las reglas de logro y reconocimientos siguen pendientes según P06.
 
 ### Semana
 
+Persistidos: id, starts_at, ends_at y created_at. starts_at es único y
+ends_at debe ser posterior. El estado de cierre y los resultados siguientes
+son diseño pendiente; todavía no existen como columnas:
+
 - Identidad y límites temporales de inicio y fin.
 - Estado abierto o cerrado.
 - Fecha de cierre y totales del resultado cuando esté cerrada.
@@ -166,7 +188,11 @@ Las reglas de logro y reconocimientos siguen pendientes según P06.
 
 Una semana puede tener cero compromisos.
 Al cerrar sin compromisos, se clasifica como negativa.
-La zona horaria y el inicio del seguimiento dependen de P05.
+Según D11, el seguimiento comienza en la primera incorporación confirmada
+a Hoy y usa America/Argentina/Buenos_Aires. La primera semana puede ser
+parcial. Cada compromiso persiste su addedAt; todavía falta implementar la
+referencia de inicio del seguimiento y la generación de semanas posteriores vacías.
+created_at de la semana no representa el inicio del seguimiento.
 
 ### Compromiso semanal
 
@@ -175,10 +201,12 @@ La zona horaria y el inicio del seguimiento dependen de P05.
 - objectiveId: referencia obligatoria al objetivo elegido.
 - weekId: referencia obligatoria a la semana.
 - addedAt: instante de incorporación.
-- completedAt: instante de cumplimiento, o null.
-- withdrawnAt: instante de retiro de Hoy, o null.
+- completedAt: instante de cumplimiento, o null (pendiente de persistencia).
+- withdrawnAt: instante de retiro de Hoy, o null (pendiente de persistencia).
 
-Restricción propuesta en la base: UNIQUE (taskId, weekId).
+Restricción implementada en la base: UNIQUE (task_id, week_id).
+Las claves foráneas a tarea, objetivo y semana usan ON DELETE RESTRICT.
+La creación y reutilización están implementadas; retiro y finalización no.
 Cambiar de día dentro de la semana no crea otro compromiso.
 Retirar y reincorporar la tarea reutiliza el mismo compromiso.
 Retirarlo no reduce el total semanal ni elimina su historial.
@@ -200,8 +228,12 @@ Regla aprobada según R07:
 - La semana comienza el lunes a las 00:00, incluido.
 - Termina el lunes siguiente a las 00:00, excluido.
 - Una acción en ese límite pertenece a la nueva semana.
-- La zona horaria, el inicio del seguimiento y las semanas
-  parciales siguen pendientes según P05.
+- La zona fija inicial es America/Argentina/Buenos_Aires, según D11.
+- El seguimiento comienza al confirmar la primera tarea en Hoy y no genera
+  semanas anteriores. La primera semana registra desde ese instante hasta
+  el lunes siguiente; se evalúan los compromisos asumidos.
+- Las semanas posteriores sin actividad también pertenecen al seguimiento,
+  aunque no se abra la aplicación.
 
 Propuesta técnica:
 
@@ -253,7 +285,7 @@ independientes de las mismas tareas por columna.
 Actualmente conviven dos almacenamientos independientes:
 
 - localStorage para las tareas del frontend.
-- PostgreSQL para las tareas y objetivos creados mediante la API.
+- PostgreSQL para tareas, objetivos, semanas y compromisos creados mediante la API.
 
 La integración debe establecer PostgreSQL como fuente de verdad
 para las funciones conectadas, sin mantener dos versiones divergentes.
@@ -268,8 +300,9 @@ Antes de migrar los datos locales:
 5. Conservar el origen si la operación falla.
 
 No inventar compromisos históricos usando la fecha de creación.
-Definir el inicio del seguimiento fiable y el tratamiento de tareas
-antiguas según P05. Conservar su importancia según el flujo aprobado.
+El seguimiento comienza con la primera incorporación confirmada a Hoy
+según D11. Importar tareas antiguas no crea compromisos ni semanas previas.
+Conservar su importancia según el flujo aprobado.
 La exportación y recuperación de datos todavía no están implementadas.
 
 ## Backend: pendientes
@@ -277,12 +310,12 @@ La exportación y recuperación de datos todavía no están implementadas.
 Express, TypeScript y PostgreSQL ya están implementados.
 Todavía falta:
 
-- Implementar semanas y compromisos vinculados a tareas y objetivos.
+- Implementar el listado de Hoy y los estados de retiro y finalización.
 - Integrar las tareas, su importancia y los objetivos con el frontend.
 - Validar las transiciones y conservar el historial semanal.
 - Implementar cierres transaccionales e idempotentes.
-- Aplicar restricciones contra compromisos duplicados.
-- Resolver calendario, reaperturas y correcciones antes de implementarlos.
+- Completar D11: referencia de inicio del seguimiento y semanas posteriores vacías.
+- Resolver reaperturas y correcciones.
 - Incorporar autenticación y autorización antes del uso multiusuario.
 - Automatizar la aplicación y el registro de migraciones.
 
@@ -292,18 +325,19 @@ Las credenciales permanecen fuera de Git.
 ## Verificación
 
 La última ejecución verificada, el 16 de noviembre de 2026,
-aprobó las 33 pruebas existentes: 27 de integración y 6 unitarias.
+aprobó las 40 pruebas existentes: 34 de integración y 6 unitarias.
+El chequeo TypeScript también pasó. En Postman se observó una respuesta 200
+al recuperar un compromiso existente; la creación y repetición están cubiertas
+por pruebas automatizadas.
 Consultar pruebas-api.md para su alcance y ejecución.
 
 Pruebas pendientes del modelo semanal:
 
-- Rechazar incorporaciones a Hoy sin un objetivo en curso.
-- Evitar duplicados por tarea y semana.
 - Conservar el denominador al retirar y reincorporar tareas.
 - Mantener pendientes entre días sin compromisos adicionales.
 - Calcular 8 completadas de 10 como 80%, sin inferir una clasificación.
 - Cerrar semanas vacías sin dividir por cero.
-- Respetar los límites semanales y conservar resultados históricos.
+- Conservar resultados históricos del cierre; los límites semanales ya se prueban.
 - Reintentar cierres sin duplicar efectos ni afectar la nueva semana.
 - Migrar datos locales sin pérdidas ni historia inventada.
 - Probar reaperturas, correcciones y rachas cuando se aprueben sus reglas.

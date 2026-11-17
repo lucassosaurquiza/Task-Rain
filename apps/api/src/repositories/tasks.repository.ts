@@ -1,4 +1,5 @@
 import { pool } from "../db.js";
+import type { PoolClient } from "pg";
 
 export async function listTasks() {
   const result = await pool.query(`
@@ -68,6 +69,33 @@ export async function updateTaskObjective(
                objective_id AS "objectiveId",
                created_at AS "createdAt"`,
     [objectiveId, id],
+  );
+
+  return result.rows[0] ?? null;
+}
+
+type TaskForCommitment = {
+  id: string;
+  isImportant: boolean;
+  objectiveId: string | null;
+  objectiveStatus: "in_progress" | "achieved" | null;
+};
+
+export async function findTaskForCommitment(
+  client: PoolClient,
+  id: string,
+): Promise<TaskForCommitment | null> {
+  const result = await client.query<TaskForCommitment>(
+    `SELECT
+       t.id,
+       t.is_important AS "isImportant",
+       t.objective_id AS "objectiveId",
+       o.status AS "objectiveStatus"
+     FROM public.tasks AS t
+     LEFT JOIN public.objectives AS o ON o.id = t.objective_id
+     WHERE t.id = $1
+     FOR UPDATE OF t`,
+    [id],
   );
 
   return result.rows[0] ?? null;

@@ -2,6 +2,8 @@ import { after, before, test } from "node:test";
 import { app } from "../app.js";
 import { pool } from "../db.js";
 import { randomUUID } from "node:crypto";
+import { getWeekBounds, getOrCreateWeek } from "../repositories/weeks.repository.js";
+import { getOrCreateWeeklyCommitment } from "../repositories/weekly-commitments.repository.js";
 
 import assert from "node:assert/strict";
 import request from "supertest";
@@ -17,6 +19,289 @@ before(async () => {
 
 after(async () => {
   await pool.end();
+});
+
+test("calcula semanas de Buenos Aires respetando el lunes y el cambio de año", async () => {
+  const cases = [
+    {
+      instant: "2026-11-16T02:59:59.999Z",
+      start: "2026-11-09T03:00:00.000Z",
+      end: "2026-11-16T03:00:00.000Z",
+    },
+    {
+      instant: "2026-11-16T03:00:00.000Z",
+      start: "2026-11-16T03:00:00.000Z",
+      end: "2026-11-23T03:00:00.000Z",
+    },
+    {
+      instant: "2027-01-01T12:00:00.000Z",
+      start: "2026-12-28T03:00:00.000Z",
+      end: "2027-01-04T03:00:00.000Z",
+    },
+  ];
+  const client = await pool.connect();
+  try {
+    for (const { instant, start, end } of cases) {
+      const bounds = await getWeekBounds(client, new Date(instant));
+      assert.equal(bounds.startsAt.toISOString(), start, instant);
+      assert.equal(bounds.endsAt.toISOString(), end, instant);
+    }
+  } finally {
+    client.release();
+  }
+});
+
+test("el calendario semanal no depende de la zona horaria de la conexion", async () => {
+  const client = await pool.connect();
+  try {
+    await client.query("BEGIN");
+    for (const zone of ["UTC", "Asia/Tokyo", "America/Los_Angeles"]) {
+      await client.query("SELECT set_config('TimeZone', $1, true)", [zone]);
+      const bounds = await getWeekBounds(
+        client,
+        new Date("2026-11-16T02:59:59.999Z"),
+      );
+      assert.equal(bounds.startsAt.toISOString(), "2026-11-09T03:00:00.000Z", zone);
+      assert.equal(bounds.endsAt.toISOString(), "2026-11-16T03:00:00.000Z", zone);
+    }
+  } finally {
+    try {
+      await client.query("ROLLBACK");
+    } finally {
+      client.release();
+    }
+  }
+});
+
+test("crea y reutiliza semanas sin dejar registros despues de rollback", async () => {
+  const client = await pool.connect();
+  try {
+    await client.query("BEGIN");
+    const reference = await client.query<{ instant: Date }>(
+      `SELECT COALESCE(MAX(ends_at), TIMESTAMPTZ '2040-01-02 03:00:00+00')
+              + INTERVAL '1 week' AS instant
+       FROM public.weeks`,
+    );
+    const first = await getOrCreateWeek(client, reference.rows[0].instant);
+    const repeated = await getOrCreateWeek(client, first.startsAt);
+    const later = await getOrCreateWeek(
+      client,
+      new Date(first.endsAt.getTime() - 1),
+    );
+    assert.deepEqual(repeated, first);
+    assert.deepEqual(later, first);
+
+    const next = await getOrCreateWeek(client, first.endsAt);
+    assert.notEqual(next.id, first.id);
+    assert.equal(next.startsAt.toISOString(), first.endsAt.toISOString());
+
+    const stored = await client.query(
+      "SELECT id FROM public.weeks WHERE starts_at IN ($1, $2)",
+      [first.startsAt, next.startsAt],
+    );
+    assert.equal(stored.rows.length, 2);
+
+    await client.query("ROLLBACK");
+    const remaining = await client.query(
+      "SELECT id FROM public.weeks WHERE id IN ($1, $2)",
+      [first.id, next.id],
+    );
+    assert.equal(remaining.rows.length, 0);
+  } finally {
+    try {
+      await client.query("ROLLBACK");
+    } finally {
+      client.release();
+    }
+  }
+});
+
+test("reutiliza el compromiso original y permite otro en la semana siguiente", async () => {
+  const client = await pool.connect();
+  try {
+    await client.query("BEGIN");
+    const task = await client.query<{ id: string }>(
+      "INSERT INTO public.tasks (title) VALUES ($1) RETURNING id",
+      [`Compromiso de prueba ${randomUUID()}`],
+    );
+    const objectives = await client.query<{ id: string }>(
+      `INSERT INTO public.objectives (title, success_criterion, period)
+       VALUES ($1, 'Completar la practica', 'weekly'),
+              ($2, 'Completar otra practica', 'monthly')
+       RETURNING id`,
+      [`Objetivo A ${randomUUID()}`, `Objetivo B ${randomUUID()}`],
+    );
+    const reference = await client.query<{ instant: Date }>(
+      `SELECT COALESCE(MAX(ends_at), TIMESTAMPTZ '2040-01-02 03:00:00+00')
+              + INTERVAL '1 week' AS instant FROM public.weeks`,
+    );
+    const week = await getOrCreateWeek(client, reference.rows[0].instant);
+    const input = {
+      taskId: task.rows[0].id,
+      objectiveId: objectives.rows[0].id,
+      weekId: week.id,
+      addedAt: week.startsAt,
+    };
+    const first = await getOrCreateWeeklyCommitment(client, input);
+    assert.equal(first.created, true);
+    assert.deepEqual(first.commitment, { id: first.commitment.id, ...input });
+
+    const repeated = await getOrCreateWeeklyCommitment(client, {
+      ...input,
+      objectiveId: objectives.rows[1].id,
+      addedAt: new Date(week.startsAt.getTime() + 1000),
+    });
+    assert.equal(repeated.created, false);
+    assert.deepEqual(repeated.commitment, first.commitment);
+
+    const nextWeek = await getOrCreateWeek(client, week.endsAt);
+    const next = await getOrCreateWeeklyCommitment(client, {
+      ...input,
+      objectiveId: objectives.rows[1].id,
+      weekId: nextWeek.id,
+      addedAt: nextWeek.startsAt,
+    });
+    assert.equal(next.created, true);
+    assert.notEqual(next.commitment.id, first.commitment.id);
+    assert.equal(next.commitment.objectiveId, objectives.rows[1].id);
+    assert.equal(next.commitment.weekId, nextWeek.id);
+
+    const stored = await client.query(
+      "SELECT id FROM public.weekly_commitments WHERE task_id = $1",
+      [input.taskId],
+    );
+    assert.equal(stored.rows.length, 2);
+  } finally {
+    try {
+      await client.query("ROLLBACK");
+    } finally {
+      client.release();
+    }
+  }
+});
+
+test("POST commitments rechaza UUID invalido y tarea inexistente", async () => {
+  const invalid = await request(app).post("/tasks/abc/commitments");
+  assert.equal(invalid.status, 400);
+  const missing = await request(app).post(`/tasks/${randomUUID()}/commitments`);
+  assert.equal(missing.status, 404);
+  assert.deepEqual(missing.body, { error: "La tarea no existe" });
+});
+
+test("POST commitments valida las reglas y revierte las escrituras rechazadas", async (t) => {
+  const taskIds: string[] = [];
+  const objectiveIds: string[] = [];
+  t.after(async () => {
+    await pool.query("DELETE FROM public.tasks WHERE id = ANY($1::uuid[])", [taskIds]);
+    await pool.query("DELETE FROM public.objectives WHERE id = ANY($1::uuid[])", [objectiveIds]);
+  });
+
+  const objective = await pool.query<{ id: string }>(
+    `INSERT INTO public.objectives (title, success_criterion, period, status)
+     VALUES ($1, 'Practicar', 'weekly', 'achieved') RETURNING id`,
+    [`Objetivo logrado ${randomUUID()}`],
+  );
+  objectiveIds.push(objective.rows[0].id);
+  const beforeWeeks = await pool.query("SELECT id FROM public.weeks ORDER BY id");
+
+  const cases = [
+    { important: false, objectiveId: null, error: "La tarea debe estar marcada como importante" },
+    { important: true, objectiveId: null, error: "La tarea debe tener un objetivo asignado" },
+    { important: true, objectiveId: objective.rows[0].id, error: "El objetivo debe estar en progreso" },
+  ];
+  for (const scenario of cases) {
+    const task = await pool.query<{ id: string }>(
+      `INSERT INTO public.tasks (title, is_important, objective_id)
+       VALUES ($1, $2, $3) RETURNING id`,
+      [`Reglas de Hoy ${randomUUID()}`, scenario.important, scenario.objectiveId],
+    );
+    taskIds.push(task.rows[0].id);
+    const response = await request(app).post(`/tasks/${task.rows[0].id}/commitments`);
+    assert.equal(response.status, 409);
+    assert.deepEqual(response.body, { error: scenario.error });
+  }
+
+  const commitments = await pool.query(
+    "SELECT id FROM public.weekly_commitments WHERE task_id = ANY($1::uuid[])",
+    [taskIds],
+  );
+  assert.equal(commitments.rowCount, 0);
+  const afterWeeks = await pool.query("SELECT id FROM public.weeks ORDER BY id");
+  assert.deepEqual(afterWeeks.rows, beforeWeeks.rows);
+});
+
+test("POST commitments crea una sola vez ante solicitudes simultaneas y conserva el original", async (t) => {
+  const permissions = await pool.query<{ allowed: boolean }>(
+    `SELECT has_table_privilege(current_user, 'public.weeks', 'DELETE')
+        AND has_table_privilege(current_user, 'public.weekly_commitments', 'DELETE') AS allowed`,
+  );
+  assert.equal(permissions.rows[0].allowed, true,
+    "Falta conceder DELETE sobre weeks y weekly_commitments en task_rain_test para limpiar las pruebas");
+
+  const taskIds: string[] = [];
+  const objectiveIds: string[] = [];
+  const weekIds = new Set<string>();
+  const previousWeeks = await pool.query<{ id: string }>("SELECT id FROM public.weeks");
+  const previousWeekIds = new Set(previousWeeks.rows.map((week) => week.id));
+  t.after(async () => {
+    const stored = await pool.query<{ week_id: string }>(
+      "SELECT week_id FROM public.weekly_commitments WHERE task_id = ANY($1::uuid[])", [taskIds],
+    );
+    for (const row of stored.rows) weekIds.add(row.week_id);
+    await pool.query("DELETE FROM public.weekly_commitments WHERE task_id = ANY($1::uuid[])", [taskIds]);
+    await pool.query("DELETE FROM public.tasks WHERE id = ANY($1::uuid[])", [taskIds]);
+    await pool.query("DELETE FROM public.objectives WHERE id = ANY($1::uuid[])", [objectiveIds]);
+    await pool.query(
+      `DELETE FROM public.weeks AS w WHERE w.id = ANY($1::uuid[])
+       AND NOT EXISTS (SELECT 1 FROM public.weekly_commitments AS c WHERE c.week_id = w.id)`,
+      [[...weekIds].filter((id) => !previousWeekIds.has(id))],
+    );
+  });
+
+  const objectives = await pool.query<{ id: string }>(
+    `INSERT INTO public.objectives (title, success_criterion, period)
+     VALUES ($1, 'Practicar', 'weekly'), ($2, 'Practicar mas', 'weekly') RETURNING id`,
+    [`Original ${randomUUID()}`, `Nuevo ${randomUUID()}`],
+  );
+  objectiveIds.push(...objectives.rows.map((objective) => objective.id));
+  const task = await pool.query<{ id: string }>(
+    `INSERT INTO public.tasks (title, is_important, objective_id)
+     VALUES ($1, true, $2) RETURNING id`,
+    [`Hoy ${randomUUID()}`, objectiveIds[0]],
+  );
+  const taskId = task.rows[0].id;
+  taskIds.push(taskId);
+  const url = `/tasks/${taskId}/commitments`;
+  const responses = await Promise.all([request(app).post(url), request(app).post(url)]);
+  assert.deepEqual(responses.map((response) => response.status).sort(), [200, 201]);
+  assert.deepEqual(responses[0].body, responses[1].body);
+  const original = responses[0].body;
+  weekIds.add(original.weekId);
+  assert.equal(original.taskId, taskId);
+  assert.equal(original.objectiveId, objectiveIds[0]);
+
+  const stored = await pool.query(
+    `SELECT id, task_id AS "taskId", objective_id AS "objectiveId",
+            week_id AS "weekId", added_at AS "addedAt"
+     FROM public.weekly_commitments WHERE task_id = $1`, [taskId],
+  );
+  assert.equal(stored.rowCount, 1);
+  assert.deepEqual(JSON.parse(JSON.stringify(stored.rows[0])), original);
+
+  const reassigned = await request(app).patch(`/tasks/${taskId}/objective`)
+    .send({ objectiveId: objectiveIds[1] });
+  assert.equal(reassigned.status, 200);
+  const repeated = await request(app).post(url);
+  assert.equal(repeated.status, 200);
+  assert.deepEqual(repeated.body, original);
+
+  const unlinked = await request(app).patch(`/tasks/${taskId}/objective`).send({ objectiveId: null });
+  assert.equal(unlinked.status, 200);
+  const unmarked = await request(app).patch(`/tasks/${taskId}/importance`).send({ isImportant: false });
+  assert.equal(unmarked.status, 200);
+  const retried = await request(app).post(url);
+  assert.equal(retried.status, 200);
+  assert.deepEqual(retried.body, original);
 });
 
 test("PATCH objective rechaza un identificador de tarea invalido", async () => {

@@ -44,9 +44,12 @@ Cada funcionalidad tiene además una referencia a su estado de implementación.
    HTTP. Las reglas de UUID y título de tareas están compartidas en
    validation/uuid.ts y validation/task.ts. La comprobación del booleano
    isImportant permanece en su ruta.
-4. Implementar semanas y compromisos vinculados a objetivos,
-   evitando duplicados por tarea y semana.
-5. Implementar el cierre semanal y la conservación del historial.
+4. Continuar con el listado de Hoy, retiro y finalización. La creación de
+   compromisos vinculados a objetivos ya está implementada, con transacción,
+   calendario de Buenos Aires y protección contra duplicados por tarea y semana.
+   El servicio coordina las reglas y los repositorios; las rutas traducen a HTTP.
+5. Completar el inicio del seguimiento y las semanas vacías de D11, e implementar
+   el cierre semanal y la conservación del historial.
 6. Conectar el frontend con la API y definir cómo migrar los datos
    locales sin pérdidas ni compromisos históricos inventados.
 7. Implementar estadísticas, clasificación, rachas y reconocimientos
