@@ -11,7 +11,10 @@ import {
   validateTaskTitle,
   validateTaskObjective,
 } from "../validation/task.js";
-import { commitTaskToCurrentWeek } from "../services/weekly-commitments.service.js";
+import {
+  commitTaskToCurrentWeek,
+  withdrawTaskFromCurrentWeek,
+} from "../services/weekly-commitments.service.js";
 
 export const taskRouter = Router();
 
@@ -212,6 +215,36 @@ taskRouter.post("/:id/commitments", async (req, res) => {
 
     res.status(500).json({
       error: "No se pudo crear el compromiso semanal",
+    });
+  }
+});
+
+taskRouter.patch("/:id/commitments/current/withdraw", async (req, res) => {
+  const { id } = req.params;
+
+  if (!isValidUuid(id)) {
+    res.status(400).json({
+      error: "El identificador debe ser un UUID valido",
+    });
+    return;
+  }
+
+  try {
+    const commitment = await withdrawTaskFromCurrentWeek(id);
+
+    if (!commitment) {
+      res.status(404).json({
+        error: "No existe un compromiso de esta tarea en la semana actual",
+      });
+      return;
+    }
+
+    res.status(200).json(commitment);
+  } catch (error) {
+    console.error("Error al retirar tarea de Hoy:", error);
+
+    res.status(500).json({
+      error: "No se pudo retirar la tarea de Hoy",
     });
   }
 });

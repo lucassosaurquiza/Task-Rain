@@ -3,9 +3,17 @@ import { listCurrentWeeklyCommitments } from "../services/weekly-commitments.ser
 
 export const weeklyCommitmentRouter = Router();
 
-weeklyCommitmentRouter.get("/current", async (_req, res) => {
+weeklyCommitmentRouter.get("/current", async (req, res) => {
+  const active = req.query.active;
+
+  if (active !== undefined && active !== "true" && active !== "false") {
+    res.status(400).json({ error: "active debe ser true o false" });
+    return;
+  }
+
+  const onlyActive = active === "true";
   try {
-    const commitments = await listCurrentWeeklyCommitments();
+    const commitments = await listCurrentWeeklyCommitments(onlyActive);
 
     res.status(200).json(commitments);
   } catch (error) {

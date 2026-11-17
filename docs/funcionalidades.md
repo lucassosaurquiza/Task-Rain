@@ -14,11 +14,11 @@ Referencia de la implementación actual:
 - La API permite crear y listar objetivos con sus campos obligatorios y opcionales.
 - El frontend todavía no consume la API.
 - La API permite asignar, cambiar y quitar el objetivo actual de una tarea.
-- Existen 42 pruebas automatizadas: 36 de integración y 6 unitarias
+- Existen 44 pruebas automatizadas: 38 de integración y 6 unitarias
   de fechas y validación de objetivos.
 - La API crea y reutiliza compromisos semanales con su objetivo original.
 - La API lista los compromisos de la semana actual; falta conectarlos con Hoy
-  en el frontend. Retiros, finalización y cierres siguen pendientes.
+  en el frontend. Retiro y reincorporación disponibles; finalización y cierres pendientes.
 - La pantalla de objetivos y el dashboard todavía no representan
   el flujo semanal completo con datos reales.
 
@@ -112,12 +112,16 @@ nueva exige importancia y objetivo in_progress. Devuelve 201 al crear,
 200 al repetir, 400 ante UUID inválido, 404 si falta la tarea y 409 si no
 cumple las condiciones. Repetir devuelve el compromiso original incluso
 si luego cambia la importancia o el objetivo actual de la tarea.
+Si estaba retirado, el mismo POST lo reactiva con withdrawnAt null y devuelve 200.
+Las condiciones de incorporación se validan solo para compromisos nuevos.
 
 GET /weekly-commitments/current permite consultar la semana actual sin body.
 Devuelve 200 con un arreglo, vacío si no hay compromisos. Incluye taskTitle y
 objectiveTitle leídos de sus registros actuales, conserva el objetivo asociado
 al compromiso y ordena por addedAt e id ascendentes. Consultar no crea semanas
 ni compromisos y no inicia el seguimiento. La integración visual sigue pendiente.
+Con active=true solo devuelve los no retirados; sin parámetro o con active=false
+incluye todos. Rechaza valores inválidos o repetidos con 400.
 
 - Seguir el recorrido Lluvia → Importantes → Hoy.
 - Exigir un objetivo en curso y confirmar la incorporación.
@@ -137,8 +141,14 @@ ni compromisos y no inicia el seguimiento. La integración visual sigue pendient
 ## F05 — Retirar tareas y cambiar de período
 
 Estado del requisito: aceptado según R03 y R07.
-Implementación: se persiste el compromiso original; retiro, consulta del historial
-y cierre semanal pendientes.
+Implementación: retiro y reincorporación de la semana actual disponibles y probados.
+Consulta de semanas anteriores y cierre semanal pendientes.
+
+PATCH /tasks/:id/commitments/current/withdraw no requiere body. Devuelve 200
+con withdrawnAt y conserva la fecha al repetir. Responde 400 ante UUID inválido
+y 404 si no existe el compromiso actual. No modifica la importancia de la tarea.
+El retiro no borra registros; el listado semanal completo sigue incluyéndolos.
+La reincorporación limpia withdrawnAt; no se registra cada ciclo como un evento.
 
 - Retirar una tarea de Hoy conserva su compromiso y el denominador.
 - Reincorporarla en la misma semana reutiliza ese compromiso.

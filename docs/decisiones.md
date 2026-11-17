@@ -211,7 +211,7 @@ No incorporar NestJS en esta etapa.
 - Creación y listado de tareas, edición de título y cambio de importancia.
 - Creación y listado de objetivos con motivación, recompensa y fecha opcionales.
 - Validación del calendario en una función independiente de Express y PostgreSQL.
-- Siete migraciones SQL versionadas y aplicadas manualmente.
+- Ocho migraciones SQL versionadas y aplicadas manualmente.
 - Asociación actual opcional de tareas con objetivos mediante PATCH /tasks/:id/objective.
 - Pruebas con Node Test Runner, Supertest y task_rain_test.
 - Frontend con localStorage, todavía separado de la API.
@@ -219,8 +219,8 @@ No incorporar NestJS en esta etapa.
 ### Consecuencias y pendientes
 
 - Integrar el frontend y definir la migración de sus datos.
-- Completar retiro, finalización y consulta del historial de compromisos;
-  semanas y creación de compromisos ya están persistidos.
+- Completar finalización y consulta del historial de semanas anteriores;
+  semanas, creación, retiro y reincorporación ya están persistidos.
 - Mantener la lógica de negocio independiente de React.
 - Implementar cierres sin depender del navegador.
 - Resolver las políticas pendientes antes de implementarlas.

@@ -10,7 +10,8 @@ La API permite crear y listar tareas, editar sus títulos e importancia,
 y crear y listar objetivos con sus campos obligatorios y opcionales.
 La API también crea compromisos semanales vinculados al objetivo actual de la tarea.
 El listado de compromisos de la semana actual está disponible en la API.
-La integración de Hoy con el frontend, los retiros, la finalización y los cierres siguen pendientes.
+El retiro y la reincorporación están disponibles en la API. La integración de Hoy
+con el frontend, la finalización y los cierres siguen pendientes.
 
 Referencias:
 
@@ -114,14 +115,29 @@ Referencias:
   listCurrentWeeklyCommitments calcula los límites con getWeekBounds y libera el
   cliente en finally. El repositorio usa JOIN con semanas, tareas y objetivos.
   No requiere nuevas migraciones ni una transacción de escritura.
-- Las migraciones 001 a 007 están versionadas y se aplican manualmente.
+- PATCH /tasks/:id/commitments/current/withdraw retira el compromiso de la semana
+  actual sin body. Devuelve 200 con withdrawnAt, 400 ante UUID inválido y 404
+  si no existe un compromiso actual para esa tarea. No crea semanas ni registros.
+  Conserva la primera fecha de retiro al repetir, mediante COALESCE.
+- POST /tasks/:id/commitments reincorpora un compromiso retirado poniendo
+  withdrawn_at en NULL. Devuelve 200 y conserva id, objetivo, semana y addedAt.
+  Reutilizar un compromiso existente no vuelve a validar la importancia ni el
+  objetivo actual de la tarea; las condiciones de incorporación se aplican a nuevos.
+  Retiro y reincorporación coordinan sus escrituras bloqueando la misma tarea.
+- GET /weekly-commitments/current acepta active=true para devolver solo registros
+  con withdrawnAt null. Sin active o con active=false devuelve todos, incluidos
+  los retirados. Valores distintos de los textos true/false o repetidos dan 400.
+  Activo significa no retirado; la finalización todavía no está implementada.
+- La migración 008 agrega withdrawn_at TIMESTAMPTZ nullable y concede al rol
+  de la API UPDATE únicamente sobre esa columna, en ambas bases.
+- Las migraciones 001 a 008 están versionadas y se aplican manualmente.
 - No hay autenticación ni separación de datos por usuario.
 
 ### Pruebas
 
 - Node Test Runner y Supertest.
 - Base separada task_rain_test.
-- 36 pruebas de integración de salud, tareas, objetivos, asociaciones,
+- 38 pruebas de integración de salud, tareas, objetivos, asociaciones,
   calendario semanal y compromisos, incluida concurrencia sobre la misma tarea.
 - 6 pruebas unitarias de calendario y validación de objetivos,
   ejecutables sin PostgreSQL con test:unit.
@@ -211,11 +227,13 @@ created_at de la semana no representa el inicio del seguimiento.
 - weekId: referencia obligatoria a la semana.
 - addedAt: instante de incorporación.
 - completedAt: instante de cumplimiento, o null (pendiente de persistencia).
-- withdrawnAt: instante de retiro de Hoy, o null (pendiente de persistencia).
+- withdrawnAt: instante del retiro vigente, o null si está activo; persistido.
 
 Restricción implementada en la base: UNIQUE (task_id, week_id).
 Las claves foráneas a tarea, objetivo y semana usan ON DELETE RESTRICT.
-La creación y reutilización están implementadas; retiro y finalización no.
+La creación, retiro y reincorporación están implementados; finalización no.
+Reincorporar limpia withdrawnAt: no se guarda un historial de cada retiro,
+pero sí se conserva el compromiso semanal original.
 Cambiar de día dentro de la semana no crea otro compromiso.
 Retirar y reincorporar la tarea reutiliza el mismo compromiso.
 Retirarlo no reduce el total semanal ni elimina su historial.
@@ -319,7 +337,7 @@ La exportación y recuperación de datos todavía no están implementadas.
 Express, TypeScript y PostgreSQL ya están implementados.
 Todavía falta:
 
-- Conectar el listado semanal con Hoy e implementar retiro y finalización.
+- Conectar el listado de activos con Hoy e implementar finalización.
 - Integrar las tareas, su importancia y los objetivos con el frontend.
 - Validar las transiciones y conservar el historial semanal.
 - Implementar cierres transaccionales e idempotentes.
@@ -334,16 +352,20 @@ Las credenciales permanecen fuera de Git.
 ## Verificación
 
 La última ejecución verificada, el 17 de noviembre de 2026,
-aprobó las 42 pruebas existentes: 36 de integración y 6 unitarias.
+aprobó las 44 pruebas existentes: 38 de integración y 6 unitarias.
 El chequeo TypeScript también pasó. En Postman se observó una respuesta 200
 al recuperar un compromiso existente; la creación y repetición están cubiertas
 por pruebas automatizadas. También se verificó en Postman GET
 /weekly-commitments/current con 200 y los títulos de tarea y objetivo.
 Consultar pruebas-api.md para su alcance y ejecución.
+Las capturas de Postman muestran retiro con fecha y reincorporación con null,
+conservando el compromiso. El usuario confirmó la repetición del retiro y
+el recorrido del filtro de activos.
 
 Pruebas pendientes del modelo semanal:
 
-- Conservar el denominador al retirar y reincorporar tareas.
+- Verificar el cálculo final del denominador; ya se prueba que retiro y
+  reincorporación conservan una sola fila por tarea y semana.
 - Mantener pendientes entre días sin compromisos adicionales.
 - Calcular 8 completadas de 10 como 80%, sin inferir una clasificación.
 - Cerrar semanas vacías sin dividir por cero.
