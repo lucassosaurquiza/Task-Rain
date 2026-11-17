@@ -3,7 +3,7 @@ import { app } from "../app.js";
 import { pool } from "../db.js";
 import { randomUUID } from "node:crypto";
 import { getWeekBounds, getOrCreateWeek } from "../repositories/weeks.repository.js";
-import { getOrCreateWeeklyCommitment } from "../repositories/weekly-commitments.repository.js";
+import { getOrCreateWeeklyCommitment, listWeeklyCommitments } from "../repositories/weekly-commitments.repository.js";
 
 import assert from "node:assert/strict";
 import request from "supertest";
@@ -180,6 +180,76 @@ test("reutiliza el compromiso original y permite otro en la semana siguiente", a
   }
 });
 
+test("lista solo la semana solicitada, ordena y conserva el objetivo del compromiso", async () => {
+  const client = await pool.connect();
+  try {
+    await client.query("BEGIN");
+    const reference = await client.query<{ instant: Date }>(
+      `SELECT COALESCE(MAX(ends_at), TIMESTAMPTZ '2040-01-02 03:00:00+00')
+       + INTERVAL '1 week' AS instant FROM public.weeks`,
+    );
+    const bounds = await getWeekBounds(client, reference.rows[0].instant);
+    assert.deepEqual(await listWeeklyCommitments(client, bounds.startsAt), []);
+    const absent = await client.query("SELECT id FROM public.weeks WHERE starts_at = $1", [bounds.startsAt]);
+    assert.equal(absent.rowCount, 0);
+    const week = await getOrCreateWeek(client, bounds.startsAt);
+    assert.deepEqual(await listWeeklyCommitments(client, bounds.startsAt), []);
+    const nextWeek = await getOrCreateWeek(client, bounds.endsAt);
+    const objectives = await client.query<{ id: string; title: string }>(
+      `INSERT INTO public.objectives (title, success_criterion, period)
+       VALUES ($1, 'Practicar', 'weekly'), ($2, 'Practicar', 'weekly') RETURNING id, title`,
+      [`Original ${randomUUID()}`, `Actual ${randomUUID()}`],
+    );
+    const tasks = await client.query<{ id: string; title: string }>(
+      `INSERT INTO public.tasks (title, objective_id)
+       VALUES ($1, $3), ($2, $3) RETURNING id, title`,
+      [`Primera ${randomUUID()}`, `Segunda ${randomUUID()}`, objectives.rows[1].id],
+    );
+    const expected = [];
+    for (const task of tasks.rows) {
+      const result = await getOrCreateWeeklyCommitment(client, {
+        taskId: task.id, objectiveId: objectives.rows[0].id,
+        weekId: week.id, addedAt: week.startsAt,
+      });
+      expected.push({ ...result.commitment, taskTitle: task.title, objectiveTitle: objectives.rows[0].title });
+    }
+    await getOrCreateWeeklyCommitment(client, {
+      taskId: tasks.rows[0].id, objectiveId: objectives.rows[1].id,
+      weekId: nextWeek.id, addedAt: nextWeek.startsAt,
+    });
+    expected.sort((a, b) => a.id < b.id ? -1 : a.id > b.id ? 1 : 0);
+    assert.deepEqual(await listWeeklyCommitments(client, week.startsAt), expected);
+    const next = await listWeeklyCommitments(client, nextWeek.startsAt);
+    assert.equal(next.length, 1);
+    assert.equal(next[0].weekId, nextWeek.id);
+    assert.equal(next[0].objectiveId, objectives.rows[1].id);
+  } finally {
+    try { await client.query("ROLLBACK"); } finally { client.release(); }
+  }
+});
+
+test("GET current responde con los compromisos actuales sin modificar semanas ni compromisos", async () => {
+  const weeksBefore = await pool.query("SELECT * FROM public.weeks ORDER BY id");
+  const commitmentsBefore = await pool.query("SELECT * FROM public.weekly_commitments ORDER BY id");
+  const response = await request(app).get("/weekly-commitments/current");
+  assert.equal(response.status, 200);
+  assert.ok(Array.isArray(response.body));
+  const expected = await pool.query(
+    `SELECT c.id, c.task_id AS "taskId", t.title AS "taskTitle",
+      c.objective_id AS "objectiveId", o.title AS "objectiveTitle",
+      c.week_id AS "weekId", c.added_at AS "addedAt"
+     FROM public.weekly_commitments c
+     JOIN public.weeks w ON w.id = c.week_id
+     JOIN public.tasks t ON t.id = c.task_id
+     JOIN public.objectives o ON o.id = c.objective_id
+     WHERE w.starts_at <= CURRENT_TIMESTAMP AND CURRENT_TIMESTAMP < w.ends_at
+     ORDER BY c.added_at, c.id`,
+  );
+  assert.deepEqual(response.body, JSON.parse(JSON.stringify(expected.rows)));
+  assert.deepEqual((await pool.query("SELECT * FROM public.weeks ORDER BY id")).rows, weeksBefore.rows);
+  assert.deepEqual((await pool.query("SELECT * FROM public.weekly_commitments ORDER BY id")).rows, commitmentsBefore.rows);
+});
+
 test("POST commitments rechaza UUID invalido y tarea inexistente", async () => {
   const invalid = await request(app).post("/tasks/abc/commitments");
   assert.equal(invalid.status, 400);
@@ -302,6 +372,13 @@ test("POST commitments crea una sola vez ante solicitudes simultaneas y conserva
   const retried = await request(app).post(url);
   assert.equal(retried.status, 200);
   assert.deepEqual(retried.body, original);
+  const listed = await request(app).get("/weekly-commitments/current");
+  assert.equal(listed.status, 200);
+  const taskRow = await pool.query("SELECT title FROM public.tasks WHERE id = $1", [taskId]);
+  const objectiveRow = await pool.query("SELECT title FROM public.objectives WHERE id = $1", [objectiveIds[0]]);
+  assert.deepEqual(listed.body.filter((item: { taskId: string }) => item.taskId === taskId), [{
+    ...original, taskTitle: taskRow.rows[0].title, objectiveTitle: objectiveRow.rows[0].title,
+  }]);
 });
 
 test("PATCH objective rechaza un identificador de tarea invalido", async () => {

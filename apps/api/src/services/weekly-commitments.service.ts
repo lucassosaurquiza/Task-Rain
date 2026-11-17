@@ -1,9 +1,13 @@
 import { pool } from "../db.js";
 import { findTaskForCommitment } from "../repositories/tasks.repository.js";
-import { getOrCreateWeek } from "../repositories/weeks.repository.js";
+import {
+  getOrCreateWeek,
+  getWeekBounds,
+} from "../repositories/weeks.repository.js";
 import {
   findWeeklyCommitment,
   getOrCreateWeeklyCommitment,
+  listWeeklyCommitments,
 } from "../repositories/weekly-commitments.repository.js";
 
 type CommitmentError =
@@ -68,6 +72,19 @@ export async function commitTaskToCurrentWeek(
   } catch (error) {
     await client.query("ROLLBACK");
     throw error;
+  } finally {
+    client.release();
+  }
+}
+
+export async function listCurrentWeeklyCommitments() {
+  const client = await pool.connect();
+
+  try {
+    const referenceTime = new Date();
+    const bounds = await getWeekBounds(client, referenceTime);
+
+    return await listWeeklyCommitments(client, bounds.startsAt);
   } finally {
     client.release();
   }

@@ -9,7 +9,8 @@ El backend ya utiliza Express, TypeScript y PostgreSQL.
 La API permite crear y listar tareas, editar sus títulos e importancia,
 y crear y listar objetivos con sus campos obligatorios y opcionales.
 La API también crea compromisos semanales vinculados al objetivo actual de la tarea.
-El listado de Hoy, los retiros, la finalización y los cierres siguen pendientes.
+El listado de compromisos de la semana actual está disponible en la API.
+La integración de Hoy con el frontend, los retiros, la finalización y los cierres siguen pendientes.
 
 Referencias:
 
@@ -105,6 +106,14 @@ Referencias:
   compromiso sin reemplazar su objetivo ni addedAt ante una repetición.
 - Las migraciones 006 y 007 crean weeks y weekly_commitments, con restricciones
   UNIQUE sobre starts_at y sobre (task_id, week_id), respectivamente.
+- GET /weekly-commitments/current devuelve 200 con los compromisos de la semana
+  actual, ordenados por addedAt e id ascendentes; devuelve [] si no hay registros.
+  Incluye taskTitle y objectiveTitle actuales, junto con los identificadores y addedAt.
+  El objetivo se obtiene desde el compromiso, no desde la asociación actual de la tarea.
+  No filtra por la importancia actual ni crea semanas o compromisos al consultar.
+  listCurrentWeeklyCommitments calcula los límites con getWeekBounds y libera el
+  cliente en finally. El repositorio usa JOIN con semanas, tareas y objetivos.
+  No requiere nuevas migraciones ni una transacción de escritura.
 - Las migraciones 001 a 007 están versionadas y se aplican manualmente.
 - No hay autenticación ni separación de datos por usuario.
 
@@ -112,7 +121,7 @@ Referencias:
 
 - Node Test Runner y Supertest.
 - Base separada task_rain_test.
-- 34 pruebas de integración de salud, tareas, objetivos, asociaciones,
+- 36 pruebas de integración de salud, tareas, objetivos, asociaciones,
   calendario semanal y compromisos, incluida concurrencia sobre la misma tarea.
 - 6 pruebas unitarias de calendario y validación de objetivos,
   ejecutables sin PostgreSQL con test:unit.
@@ -310,7 +319,7 @@ La exportación y recuperación de datos todavía no están implementadas.
 Express, TypeScript y PostgreSQL ya están implementados.
 Todavía falta:
 
-- Implementar el listado de Hoy y los estados de retiro y finalización.
+- Conectar el listado semanal con Hoy e implementar retiro y finalización.
 - Integrar las tareas, su importancia y los objetivos con el frontend.
 - Validar las transiciones y conservar el historial semanal.
 - Implementar cierres transaccionales e idempotentes.
@@ -324,11 +333,12 @@ Las credenciales permanecen fuera de Git.
 
 ## Verificación
 
-La última ejecución verificada, el 16 de noviembre de 2026,
-aprobó las 40 pruebas existentes: 34 de integración y 6 unitarias.
+La última ejecución verificada, el 17 de noviembre de 2026,
+aprobó las 42 pruebas existentes: 36 de integración y 6 unitarias.
 El chequeo TypeScript también pasó. En Postman se observó una respuesta 200
 al recuperar un compromiso existente; la creación y repetición están cubiertas
-por pruebas automatizadas.
+por pruebas automatizadas. También se verificó en Postman GET
+/weekly-commitments/current con 200 y los títulos de tarea y objetivo.
 Consultar pruebas-api.md para su alcance y ejecución.
 
 Pruebas pendientes del modelo semanal:

@@ -44,7 +44,9 @@ Cada funcionalidad tiene además una referencia a su estado de implementación.
    HTTP. Las reglas de UUID y título de tareas están compartidas en
    validation/uuid.ts y validation/task.ts. La comprobación del booleano
    isImportant permanece en su ruta.
-4. Continuar con el listado de Hoy, retiro y finalización. La creación de
+4. Continuar con retiro y finalización e integrar el listado semanal con Hoy.
+   GET /weekly-commitments/current ya consulta compromisos sin crear registros.
+   La creación de
    compromisos vinculados a objetivos ya está implementada, con transacción,
    calendario de Buenos Aires y protección contra duplicados por tarea y semana.
    El servicio coordina las reglas y los repositorios; las rutas traducen a HTTP.
