@@ -3,7 +3,7 @@ import { app } from "../app.js";
 import { pool } from "../db.js";
 import { randomUUID } from "node:crypto";
 import { getWeekBounds, getOrCreateWeek } from "../repositories/weeks.repository.js";
-import { getOrCreateWeeklyCommitment, listWeeklyCommitments, withdrawWeeklyCommitment, findWeeklyCommitment } from "../repositories/weekly-commitments.repository.js";
+import { getOrCreateWeeklyCommitment, listWeeklyCommitments, withdrawWeeklyCommitment, findWeeklyCommitment, completeWeeklyCommitment } from "../repositories/weekly-commitments.repository.js";
 
 import assert from "node:assert/strict";
 import request from "supertest";
@@ -144,7 +144,7 @@ test("reutiliza el compromiso original y permite otro en la semana siguiente", a
     };
     const first = await getOrCreateWeeklyCommitment(client, input);
     assert.equal(first.created, true);
-    assert.deepEqual(first.commitment, { id: first.commitment.id, ...input, withdrawnAt: null });
+    assert.deepEqual(first.commitment, { id: first.commitment.id, ...input, withdrawnAt: null, completedAt: null });
 
     const repeated = await getOrCreateWeeklyCommitment(client, {
       ...input,
@@ -183,6 +183,25 @@ test("reutiliza el compromiso original y permite otro en la semana siguiente", a
     assert.equal(await withdrawWeeklyCommitment(client, input.taskId, nextWeek.endsAt, withdrawnAt), null);
     const remaining = await client.query("SELECT id FROM public.weekly_commitments WHERE task_id = $1", [input.taskId]);
     assert.equal(remaining.rowCount, 2);
+    assert.equal(await completeWeeklyCommitment(client, input.taskId, new Date(week.startsAt.getTime() - 1)), false);
+    const finishedAt = new Date(withdrawnAt.getTime() + 1000);
+    assert.equal(await completeWeeklyCommitment(client, input.taskId, finishedAt), true);
+    assert.equal(await completeWeeklyCommitment(client, input.taskId, new Date(finishedAt.getTime() + 1000)), true);
+    const finished = await client.query(
+      "SELECT completed_at, withdrawn_at FROM public.weekly_commitments WHERE id = $1", [first.commitment.id],
+    );
+    assert.equal(finished.rows[0].completed_at.toISOString(), finishedAt.toISOString());
+    assert.equal(finished.rows[0].withdrawn_at.toISOString(), withdrawnAt.toISOString());
+    const untouched = await client.query("SELECT completed_at FROM public.weekly_commitments WHERE id = $1", [next.commitment.id]);
+    assert.equal(untouched.rows[0].completed_at, null);
+    assert.equal(await completeWeeklyCommitment(client, input.taskId, nextWeek.startsAt), true);
+    assert.deepEqual(await listWeeklyCommitments(client, nextWeek.startsAt, true), []);
+    const completedHistory = await listWeeklyCommitments(client, nextWeek.startsAt, false);
+    assert.equal(completedHistory.length, 1);
+    assert.equal(completedHistory[0].withdrawnAt, null);
+    assert.equal(completedHistory[0].completedAt?.toISOString(), nextWeek.startsAt.toISOString());
+    const previous = await client.query("SELECT completed_at FROM public.weekly_commitments WHERE id = $1", [first.commitment.id]);
+    assert.equal(previous.rows[0].completed_at.toISOString(), finishedAt.toISOString());
   } finally {
     try {
       await client.query("ROLLBACK");
@@ -249,7 +268,8 @@ test("GET current responde con los compromisos actuales sin modificar semanas ni
   const expected = await pool.query(
     `SELECT c.id, c.task_id AS "taskId", t.title AS "taskTitle",
       c.objective_id AS "objectiveId", o.title AS "objectiveTitle",
-      c.week_id AS "weekId", c.added_at AS "addedAt", c.withdrawn_at AS "withdrawnAt"
+      c.week_id AS "weekId", c.added_at AS "addedAt", c.withdrawn_at AS "withdrawnAt",
+      c.completed_at AS "completedAt"
      FROM public.weekly_commitments c
      JOIN public.weeks w ON w.id = c.week_id
      JOIN public.tasks t ON t.id = c.task_id
@@ -392,7 +412,8 @@ test("POST commitments crea una sola vez ante solicitudes simultaneas y conserva
 
   const stored = await pool.query(
     `SELECT id, task_id AS "taskId", objective_id AS "objectiveId",
-            week_id AS "weekId", added_at AS "addedAt", withdrawn_at AS "withdrawnAt"
+            week_id AS "weekId", added_at AS "addedAt", withdrawn_at AS "withdrawnAt",
+            completed_at AS "completedAt"
      FROM public.weekly_commitments WHERE task_id = $1`, [taskId],
   );
   assert.equal(stored.rowCount, 1);
@@ -445,7 +466,7 @@ test("POST commitments crea una sola vez ante solicitudes simultaneas y conserva
   const activeAfterWithdrawal = await request(app).get("/weekly-commitments/current?active=true");
   assert.equal(activeAfterWithdrawal.status, 200);
   assert.deepEqual(activeAfterWithdrawal.body,
-    listedAfter.body.filter((item: { withdrawnAt: string | null }) => item.withdrawnAt === null));
+    listedAfter.body.filter((item: { withdrawnAt: string | null; completedAt: string | null }) => item.withdrawnAt === null && item.completedAt === null));
   assert.equal(activeAfterWithdrawal.body.some((item: { taskId: string }) => item.taskId === taskId), false);
   const restorations = await Promise.all([request(app).post(url), request(app).post(url)]);
   for (const response of restorations) {
@@ -467,8 +488,92 @@ test("POST commitments crea una sola vez ante solicitudes simultaneas y conserva
   const activeRestored = await request(app).get("/weekly-commitments/current?active=true");
   assert.equal(activeRestored.status, 200);
   assert.deepEqual(activeRestored.body,
-    listedRestored.body.filter((item: { withdrawnAt: string | null }) => item.withdrawnAt === null));
+    listedRestored.body.filter((item: { withdrawnAt: string | null; completedAt: string | null }) => item.withdrawnAt === null && item.completedAt === null));
   assert.equal(activeRestored.body.filter((item: { taskId: string }) => item.taskId === taskId).length, 1);
+  const withdrawnBeforeCompletion = await request(app).patch(withdrawalUrl);
+  assert.equal(withdrawnBeforeCompletion.status, 200);
+  const completed = await request(app).patch(`/tasks/${taskId}/complete`);
+  assert.equal(completed.status, 200);
+  assert.equal(completed.body.id, taskId);
+  const completedAgain = await request(app).patch(`/tasks/${taskId}/complete`);
+  assert.equal(completedAgain.status, 200);
+  assert.deepEqual(completedAgain.body, completed.body);
+  const completedCommitment = await pool.query(
+    `SELECT id, objective_id, added_at, withdrawn_at, completed_at
+     FROM public.weekly_commitments WHERE task_id = $1`, [taskId],
+  );
+  assert.equal(completedCommitment.rowCount, 1);
+  const saved = completedCommitment.rows[0];
+  assert.equal(saved.id, original.id);
+  assert.equal(saved.objective_id, original.objectiveId);
+  assert.equal(saved.added_at.toISOString(), original.addedAt);
+  assert.equal(saved.withdrawn_at.toISOString(), withdrawnBeforeCompletion.body.withdrawnAt);
+  assert.equal(saved.completed_at.toISOString(), completed.body.completedAt);
+  const tasksAfterCompletion = await request(app).get("/tasks");
+  assert.equal(tasksAfterCompletion.status, 200);
+  assert.deepEqual(tasksAfterCompletion.body.find((item: { id: string }) => item.id === taskId), completed.body);
+  const commitmentsAfterCompletion = await request(app).get("/weekly-commitments/current");
+  assert.equal(commitmentsAfterCompletion.status, 200);
+  const listedCompleted = commitmentsAfterCompletion.body.find((item: { taskId: string }) => item.taskId === taskId);
+  assert.equal(listedCompleted.completedAt, completed.body.completedAt);
+  assert.equal(listedCompleted.withdrawnAt, withdrawnBeforeCompletion.body.withdrawnAt);
+  const completedRetry = await request(app).post(url);
+  assert.equal(completedRetry.status, 200);
+  assert.deepEqual(completedRetry.body, {
+    ...original,
+    completedAt: completed.body.completedAt,
+    withdrawnAt: withdrawnBeforeCompletion.body.withdrawnAt,
+  });
+  const preserved = await pool.query(
+    "SELECT completed_at, withdrawn_at FROM public.weekly_commitments WHERE id = $1", [original.id],
+  );
+  assert.equal(preserved.rows[0].completed_at.toISOString(), completed.body.completedAt);
+  assert.equal(preserved.rows[0].withdrawn_at.toISOString(), withdrawnBeforeCompletion.body.withdrawnAt);
+  const activeAfterCompletion = await request(app).get("/weekly-commitments/current?active=true");
+  assert.equal(activeAfterCompletion.status, 200);
+  assert.equal(activeAfterCompletion.body.some((item: { taskId: string }) => item.taskId === taskId), false);
+  const edits = [
+    { path: `/tasks/${taskId}`, body: { title: `Terminada ${taskId}` } },
+    { path: `/tasks/${taskId}/importance`, body: { isImportant: true } },
+    { path: `/tasks/${taskId}/objective`, body: { objectiveId: objectiveIds[1] } },
+  ];
+  for (const edit of edits) {
+    const response = await request(app).patch(edit.path).send(edit.body);
+    assert.equal(response.status, 200);
+    assert.equal(response.body.completedAt, completed.body.completedAt);
+  }
+});
+
+test("PATCH complete rechaza UUID invalido y tarea inexistente", async () => {
+  const invalid = await request(app).patch("/tasks/abc/complete");
+  assert.equal(invalid.status, 400);
+  const missing = await request(app).patch(`/tasks/${randomUUID()}/complete`);
+  assert.equal(missing.status, 404);
+  assert.deepEqual(missing.body, { error: "La tarea no existe" });
+});
+
+test("completa sin compromiso y conserva la fecha ante solicitudes simultaneas", async (t) => {
+  const taskId = randomUUID();
+  t.after(async () => {
+    await pool.query("DELETE FROM public.tasks WHERE id = $1", [taskId]);
+  });
+  await pool.query("INSERT INTO public.tasks (id, title) VALUES ($1, $2)", [taskId, `Completar ${taskId}`]);
+  const weeksBefore = await pool.query("SELECT * FROM public.weeks ORDER BY id");
+  const responses = await Promise.all([
+    request(app).patch(`/tasks/${taskId}/complete`),
+    request(app).patch(`/tasks/${taskId}/complete`),
+  ]);
+  for (const response of responses) assert.equal(response.status, 200);
+  assert.deepEqual(responses[0].body, responses[1].body);
+  assert.equal(typeof responses[0].body.completedAt, "string");
+  assert.ok(Number.isFinite(Date.parse(responses[0].body.completedAt)));
+  const stored = await pool.query("SELECT completed_at FROM public.tasks WHERE id = $1", [taskId]);
+  assert.equal(stored.rows[0].completed_at.toISOString(), responses[0].body.completedAt);
+  const newCommitment = await request(app).post(`/tasks/${taskId}/commitments`);
+  assert.equal(newCommitment.status, 409);
+  assert.deepEqual(newCommitment.body, { error: "La tarea ya esta completada" });
+  assert.equal((await pool.query("SELECT id FROM public.weekly_commitments WHERE task_id = $1", [taskId])).rowCount, 0);
+  assert.deepEqual((await pool.query("SELECT * FROM public.weeks ORDER BY id")).rows, weeksBefore.rows);
 });
 
 test("PATCH objective rechaza un identificador de tarea invalido", async () => {
@@ -620,6 +725,7 @@ test("crea una tarea y la devuelve al listar", async (t) => {
   assert.equal(created.status, 201);
   assert.equal(created.body.isImportant, false);
   assert.equal(created.body.objectiveId, null);
+  assert.equal(created.body.completedAt, null);
   assert.equal(typeof created.body.id, "string");
   assert.equal(created.body.title, title);
   assert.equal(typeof created.body.createdAt, "string");
@@ -663,6 +769,7 @@ test("edita el titulo y conserva el id y la fecha", async (t) => {
     isImportant: false,
     objectiveId: null,
     createdAt,
+    completedAt: null,
   });
 
   const listed = await request(app).get("/tasks");

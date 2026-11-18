@@ -211,7 +211,7 @@ No incorporar NestJS en esta etapa.
 - Creación y listado de tareas, edición de título y cambio de importancia.
 - Creación y listado de objetivos con motivación, recompensa y fecha opcionales.
 - Validación del calendario en una función independiente de Express y PostgreSQL.
-- Ocho migraciones SQL versionadas y aplicadas manualmente.
+- Nueve migraciones SQL versionadas y aplicadas manualmente.
 - Asociación actual opcional de tareas con objetivos mediante PATCH /tasks/:id/objective.
 - Pruebas con Node Test Runner, Supertest y task_rain_test.
 - Frontend con localStorage, todavía separado de la API.
@@ -219,8 +219,8 @@ No incorporar NestJS en esta etapa.
 ### Consecuencias y pendientes
 
 - Integrar el frontend y definir la migración de sus datos.
-- Completar finalización y consulta del historial de semanas anteriores;
-  semanas, creación, retiro y reincorporación ya están persistidos.
+- Completar la consulta del historial de semanas anteriores;
+  semanas, creación, retiro, reincorporación y finalización ya están persistidos.
 - Mantener la lógica de negocio independiente de React.
 - Implementar cierres sin depender del navegador.
 - Resolver las políticas pendientes antes de implementarlas.
@@ -282,3 +282,36 @@ inicio del seguimiento, las semanas posteriores vacías y el cierre.
 - Conservar los límites históricos y contemplar semanas vacías en el cierre.
 - La configuración por usuario y los cambios de zona quedan para una etapa
   posterior; la implementación actual todavía no es multiusuario.
+
+## D12 — Cumplimiento de un compromiso retirado
+
+Estado: aceptada el 17 de noviembre de 2026; implementada y probada en la API.
+
+Completar una tarea retirada de Hoy cumple su compromiso si la finalización
+ocurre dentro de la misma semana. No requiere reincorporarla previamente.
+El retiro modifica su presencia en Hoy, no la obligación asumida ni el plazo.
+Completar en otra semana no corrige el compromiso anterior.
+
+La finalización de la tarea y el cumplimiento del compromiso se representan
+por separado y se guardan de forma atómica cuando corresponde actualizar ambos.
+Completar no requiere borrar withdrawn_at: retiro y cumplimiento son hechos distintos.
+Esta decisión no define reaperturas ni correcciones de semanas cerradas (P02/P03).
+
+## D13 — Pendientes visibles en Hoy
+
+Estado: aceptada el 18 de noviembre de 2026.
+
+El filtro active=true de compromisos semanales devuelve únicamente registros
+no retirados y no completados (withdrawnAt y completedAt en null).
+Completar un compromiso lo quita de esta vista; el listado sin filtro o con
+active=false lo conserva para consultar el historial semanal.
+
+## D14 — Incorporación de tareas ya completadas
+
+Estado: aceptada el 18 de noviembre de 2026.
+
+Si una tarea completada no tiene compromiso en la semana actual, intentar
+incorporarla devuelve 409 sin crear semanas ni compromisos.
+Si ya tiene compromiso en esa semana, devuelve 200 con el registro existente,
+sin reactivarlo ni modificar sus fechas, incluso si estaba retirado.
+La reapertura sigue pendiente de P02 y no se realiza mediante incorporación.

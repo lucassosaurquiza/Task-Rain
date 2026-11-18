@@ -14,6 +14,7 @@ import {
 import {
   commitTaskToCurrentWeek,
   withdrawTaskFromCurrentWeek,
+  completeTaskAndCommitment,
 } from "../services/weekly-commitments.service.js";
 
 export const taskRouter = Router();
@@ -196,6 +197,7 @@ taskRouter.post("/:id/commitments", async (req, res) => {
     if ("error" in result) {
       const messages = {
         task_not_found: "La tarea no existe",
+        task_already_completed: "La tarea ya esta completada",
         task_not_important: "La tarea debe estar marcada como importante",
         objective_required: "La tarea debe tener un objetivo asignado",
         objective_not_in_progress: "El objetivo debe estar en progreso",
@@ -245,6 +247,36 @@ taskRouter.patch("/:id/commitments/current/withdraw", async (req, res) => {
 
     res.status(500).json({
       error: "No se pudo retirar la tarea de Hoy",
+    });
+  }
+});
+
+taskRouter.patch("/:id/complete", async (req, res) => {
+  const { id } = req.params;
+
+  if (!isValidUuid(id)) {
+    res.status(400).json({
+      error: "El identificador debe ser un UUID valido",
+    });
+    return;
+  }
+
+  try {
+    const task = await completeTaskAndCommitment(id);
+
+    if (!task) {
+      res.status(404).json({
+        error: "La tarea no existe",
+      });
+      return;
+    }
+
+    res.status(200).json(task);
+  } catch (error) {
+    console.error("Error al completar tarea:", error);
+
+    res.status(500).json({
+      error: "No se pudo completar la tarea",
     });
   }
 });

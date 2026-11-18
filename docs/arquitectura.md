@@ -11,7 +11,8 @@ y crear y listar objetivos con sus campos obligatorios y opcionales.
 La API también crea compromisos semanales vinculados al objetivo actual de la tarea.
 El listado de compromisos de la semana actual está disponible en la API.
 El retiro y la reincorporación están disponibles en la API. La integración de Hoy
-con el frontend, la finalización y los cierres siguen pendientes.
+con el frontend y los cierres siguen pendientes. La finalización está disponible
+en la API, separando tarea terminada de compromiso cumplido.
 
 Referencias:
 
@@ -125,19 +126,35 @@ Referencias:
   objetivo actual de la tarea; las condiciones de incorporación se aplican a nuevos.
   Retiro y reincorporación coordinan sus escrituras bloqueando la misma tarea.
 - GET /weekly-commitments/current acepta active=true para devolver solo registros
-  con withdrawnAt null. Sin active o con active=false devuelve todos, incluidos
+  con withdrawnAt y completedAt en null. Sin active o con active=false devuelve todos, incluidos
   los retirados. Valores distintos de los textos true/false o repetidos dan 400.
-  Activo significa no retirado; la finalización todavía no está implementada.
+  Activo significa pendiente y no retirado. Completar lo excluye de esta vista,
+  pero conserva el registro en el listado completo.
 - La migración 008 agrega withdrawn_at TIMESTAMPTZ nullable y concede al rol
   de la API UPDATE únicamente sobre esa columna, en ambas bases.
-- Las migraciones 001 a 008 están versionadas y se aplican manualmente.
+- PATCH /tasks/:id/complete no requiere body: devuelve 200 con la tarea y
+  completedAt, 400 ante UUID inválido y 404 si no existe. El servidor fija la fecha.
+  completeTaskAndCommitment bloquea la tarea y actualiza tarea y compromiso
+  dentro de una transacción. Solo procesa el compromiso en la primera finalización.
+  Repetir conserva la fecha original y no vuelve a procesar el historial.
+- El compromiso debe pertenecer a la semana que contiene el instante de
+  finalización y haber sido creado antes o en ese instante. Se puede cumplir
+  aunque esté retirado, conservando withdrawnAt (D12). No se crean compromisos
+  ni semanas al completar una tarea sin compromiso.
+- Una tarea completada no admite nuevos compromisos: POST devuelve 409.
+  Si ya existe uno en la semana actual, devuelve 200 sin reactivarlo ni alterar
+  sus fechas (D14). La reapertura sigue pendiente.
+- La migración 009 agrega completed_at nullable en tasks y weekly_commitments,
+  con permisos UPDATE limitados a esas columnas. Las respuestas de tareas y
+  compromisos exponen completedAt; editar otros campos conserva esta fecha.
+- Las migraciones 001 a 009 están versionadas y se aplican manualmente.
 - No hay autenticación ni separación de datos por usuario.
 
 ### Pruebas
 
 - Node Test Runner y Supertest.
 - Base separada task_rain_test.
-- 38 pruebas de integración de salud, tareas, objetivos, asociaciones,
+- 40 pruebas de integración de salud, tareas, objetivos, asociaciones,
   calendario semanal y compromisos, incluida concurrencia sobre la misma tarea.
 - 6 pruebas unitarias de calendario y validación de objetivos,
   ejecutables sin PostgreSQL con test:unit.
@@ -178,7 +195,7 @@ El modelo siguiente distingue los campos persistidos de las ampliaciones previst
   columnas del frontend pendiente.
 - Cero o un objetivo actual, asignable antes de incorporarse a Hoy
   según D10. Relación implementada mediante objective_id y su endpoint.
-- Estado actual de finalización, cuyo diseño persistido falta definir.
+- Instante de finalización persistido en completed_at; null indica pendiente.
 
 Crear o priorizar una tarea no genera estadísticas.
 La organización y la finalización son conceptos distintos.
@@ -226,12 +243,12 @@ created_at de la semana no representa el inicio del seguimiento.
 - objectiveId: referencia obligatoria al objetivo elegido.
 - weekId: referencia obligatoria a la semana.
 - addedAt: instante de incorporación.
-- completedAt: instante de cumplimiento, o null (pendiente de persistencia).
+- completedAt: instante de cumplimiento, o null; persistido.
 - withdrawnAt: instante del retiro vigente, o null si está activo; persistido.
 
 Restricción implementada en la base: UNIQUE (task_id, week_id).
 Las claves foráneas a tarea, objetivo y semana usan ON DELETE RESTRICT.
-La creación, retiro y reincorporación están implementados; finalización no.
+La creación, retiro, reincorporación y finalización están implementados.
 Reincorporar limpia withdrawnAt: no se guarda un historial de cada retiro,
 pero sí se conserva el compromiso semanal original.
 Cambiar de día dentro de la semana no crea otro compromiso.
@@ -337,7 +354,7 @@ La exportación y recuperación de datos todavía no están implementadas.
 Express, TypeScript y PostgreSQL ya están implementados.
 Todavía falta:
 
-- Conectar el listado de activos con Hoy e implementar finalización.
+- Conectar el listado de activos y la finalización con el frontend.
 - Integrar las tareas, su importancia y los objetivos con el frontend.
 - Validar las transiciones y conservar el historial semanal.
 - Implementar cierres transaccionales e idempotentes.
@@ -351,8 +368,8 @@ Las credenciales permanecen fuera de Git.
 
 ## Verificación
 
-La última ejecución verificada, el 17 de noviembre de 2026,
-aprobó las 44 pruebas existentes: 38 de integración y 6 unitarias.
+La última ejecución verificada, el 18 de noviembre de 2026,
+aprobó las 46 pruebas existentes: 40 de integración y 6 unitarias.
 El chequeo TypeScript también pasó. En Postman se observó una respuesta 200
 al recuperar un compromiso existente; la creación y repetición están cubiertas
 por pruebas automatizadas. También se verificó en Postman GET

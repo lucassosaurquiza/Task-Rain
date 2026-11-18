@@ -1,5 +1,8 @@
 import { pool } from "../db.js";
-import { findTaskForCommitment } from "../repositories/tasks.repository.js";
+import {
+  findTaskForCommitment,
+  completeTask,
+} from "../repositories/tasks.repository.js";
 import {
   getOrCreateWeek,
   getWeekBounds,
@@ -10,10 +13,12 @@ import {
   listWeeklyCommitments,
   withdrawWeeklyCommitment,
   restoreWeeklyCommitment,
+  completeWeeklyCommitment,
 } from "../repositories/weekly-commitments.repository.js";
 
 type CommitmentError =
   | "task_not_found"
+  | "task_already_completed"
   | "task_not_important"
   | "objective_required"
   | "objective_not_in_progress";
@@ -45,7 +50,7 @@ export async function commitTaskToCurrentWeek(
     if (existing) {
       let commitment = existing;
 
-      if (existing.withdrawnAt !== null) {
+      if (task.completedAt === null && existing.withdrawnAt !== null) {
         const restored = await restoreWeeklyCommitment(
           client,
           task.id,
@@ -61,6 +66,11 @@ export async function commitTaskToCurrentWeek(
 
       await client.query("COMMIT");
       return { created: false, commitment };
+    }
+
+    if (task.completedAt !== null) {
+      await client.query("ROLLBACK");
+      return { error: "task_already_completed" };
     }
 
     if (!task.isImportant) {
@@ -135,6 +145,40 @@ export async function withdrawTaskFromCurrentWeek(taskId: string) {
 
     await client.query("COMMIT");
     return commitment;
+  } catch (error) {
+    await client.query("ROLLBACK");
+    throw error;
+  } finally {
+    client.release();
+  }
+}
+
+export async function completeTaskAndCommitment(taskId: string) {
+  const client = await pool.connect();
+
+  try {
+    await client.query("BEGIN");
+
+    const existing = await findTaskForCommitment(client, taskId);
+
+    if (!existing) {
+      await client.query("ROLLBACK");
+      return null;
+    }
+
+    const completedAt = new Date();
+    const task = await completeTask(client, taskId, completedAt);
+
+    if (!task) {
+      throw new Error("No se pudo completar la tarea");
+    }
+
+    if (existing.completedAt === null) {
+      await completeWeeklyCommitment(client, taskId, completedAt);
+    }
+
+    await client.query("COMMIT");
+    return task;
   } catch (error) {
     await client.query("ROLLBACK");
     throw error;
