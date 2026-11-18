@@ -14,11 +14,11 @@ Referencia de la implementación actual:
 - La API permite crear y listar objetivos con sus campos obligatorios y opcionales.
 - El frontend todavía no consume la API.
 - La API permite asignar, cambiar y quitar el objetivo actual de una tarea.
-- Existen 44 pruebas automatizadas: 38 de integración y 6 unitarias
+- Existen 46 pruebas automatizadas: 40 de integración y 6 unitarias
   de fechas y validación de objetivos.
 - La API crea y reutiliza compromisos semanales con su objetivo original.
 - La API lista los compromisos de la semana actual; falta conectarlos con Hoy
-  en el frontend. Retiro y reincorporación disponibles; finalización y cierres pendientes.
+  en el frontend. Retiro, reincorporación y finalización disponibles; cierres pendientes.
 - La pantalla de objetivos y el dashboard todavía no representan
   el flujo semanal completo con datos reales.
 
@@ -60,8 +60,8 @@ repetir actualmente un POST válido puede crear otra tarea.
 
 Estado del requisito: conservado del alcance anterior.
 Implementación: edición de título mediante PATCH /tasks/:id disponible
-y probada. Integración con la interfaz pendiente. La API todavía no
-persiste finalización; los compromisos se guardan por separado.
+y probada. Integración con la interfaz pendiente. La API persiste completedAt
+en tareas y compromisos por separado; editar títulos conserva esas fechas.
 
 - Permitir editar títulos de tareas pendientes o completadas.
 - Validar título, guardar explícitamente y permitir cancelar.
@@ -114,13 +114,15 @@ cumple las condiciones. Repetir devuelve el compromiso original incluso
 si luego cambia la importancia o el objetivo actual de la tarea.
 Si estaba retirado, el mismo POST lo reactiva con withdrawnAt null y devuelve 200.
 Las condiciones de incorporación se validan solo para compromisos nuevos.
+Excepción D14: si la tarea está completada, devuelve el compromiso existente
+sin reactivarlo; si no tiene uno en la semana actual, devuelve 409 sin crear nada.
 
 GET /weekly-commitments/current permite consultar la semana actual sin body.
 Devuelve 200 con un arreglo, vacío si no hay compromisos. Incluye taskTitle y
 objectiveTitle leídos de sus registros actuales, conserva el objetivo asociado
 al compromiso y ordena por addedAt e id ascendentes. Consultar no crea semanas
 ni compromisos y no inicia el seguimiento. La integración visual sigue pendiente.
-Con active=true solo devuelve los no retirados; sin parámetro o con active=false
+Con active=true solo devuelve los no retirados y no completados; sin parámetro o con active=false
 incluye todos. Rechaza valores inválidos o repetidos con 400.
 
 - Seguir el recorrido Lluvia → Importantes → Hoy.
@@ -171,13 +173,22 @@ La reincorporación limpia withdrawnAt; no se registra cada ciclo como un evento
 ## F06 — Completar y reabrir
 
 Estado: completar aceptado; reapertura pendiente según P02.
-Implementación: finalización local; cumplimiento semanal pendiente.
+Implementación: finalización local y PATCH /tasks/:id/complete disponibles,
+todavía sin integración entre frontend y API. Reapertura pendiente.
+
+El PATCH no requiere body. Devuelve 200 con completedAt, 400 ante UUID inválido
+y 404 si la tarea no existe. Conserva la primera fecha al repetir, incluso con
+solicitudes simultáneas. Actualiza tarea y compromiso compatible en una transacción.
+Completar sin compromiso no crea semanas ni obligaciones nuevas. Las respuestas
+de tareas y compromisos muestran completedAt; active=true excluye los cumplidos.
 
 - Registrar el instante de finalización.
 - Reflejar el cumplimiento del compromiso de la semana abierta.
 - Repetir la finalización no duplica el cumplimiento.
 - No alterar semanas cerradas por completar una tarea después.
 - Completar sin compromiso no crea una obligación retroactiva.
+- Completar una tarea retirada cumple el compromiso de esa misma semana,
+  sin reincorporación previa, según D12.
 - Resolver P02 antes de implementar reaperturas del historial.
 
 ### Aceptación

@@ -28,6 +28,7 @@ En una base nueva, ejecutar una vez y en este orden:
 6. apps/api/db/migrations/006_create_weeks.sql
 7. apps/api/db/migrations/007_create_weekly_commitments.sql
 8. apps/api/db/migrations/008_add_commitment_withdrawal.sql
+9. apps/api/db/migrations/009_add_completion.sql
 
 En una base existente, ejecutar solamente las migraciones
 pendientes, respetando el orden.
@@ -78,9 +79,24 @@ La suite completa ejecuta app.test.ts, date.test.ts y objective-validation.test.
 
 ## Cobertura actual
 
-La suite contiene 44 pruebas: 38 de integración y 6 unitarias.
+La suite contiene 46 pruebas: 40 de integración y 6 unitarias.
 
 Cobertura de semanas y compromisos:
+
+- PATCH complete responde 400 ante UUID inválido y 404 para tarea inexistente.
+- Completar sin compromiso no crea semanas ni compromisos; solicitudes simultáneas
+  conservan la misma fecha en la tarea.
+- Una tarea retirada cumple su compromiso de la misma semana sin borrar el retiro.
+  Repetir la finalización conserva las fechas y los identificadores originales.
+- El repositorio comprueba el intervalo semanal y no modifica otra semana;
+  una fecha anterior al inicio no cumple el compromiso. Se prueba el límite de
+  inicio de la siguiente semana, sin alterar la fecha de la anterior.
+- Los listados exponen completedAt; editar título, importancia u objetivo
+  conserva la fecha de la tarea. active=true excluye completados aun sin retiro,
+  mientras el listado completo los conserva.
+- Incorporar una tarea completada sin compromiso actual devuelve 409 sin crear
+  registros. Si ya tiene compromiso, devuelve 200 sin limpiar withdrawnAt ni
+  modificar completedAt.
 
 - Retiro repetido conserva su fecha, objetivo e identidad; no modifica el
   compromiso de otra semana. Un compromiso inexistente devuelve null en el repositorio.
@@ -174,7 +190,7 @@ de integración existentes también pasan por el validador desde la ruta.
 Aceptar períodos en una prueba unitaria no comprueba su persistencia;
 la creación válida por HTTP está cubierta con monthly y weekly.
 
-Última ejecución verificada: 17 de noviembre de 2026, 44 aprobadas,
+Última ejecución verificada: 18 de noviembre de 2026, 46 aprobadas,
 0 fallidas. Actualizar este resultado cuando cambie la suite.
 
 Antes de las pruebas de integración se verifica el entorno y la base real.
@@ -186,6 +202,6 @@ quedan sin compromisos. Comprueba el permiso DELETE antes de crear esos datos.
 Si el proceso se interrumpe abruptamente, pueden quedar datos
 de prueba.
 
-No hay cobertura de cambios de estado de objetivos o finalización
-de compromisos ni cierres semanales. La suite
+No hay cobertura de cambios de estado de objetivos, reaperturas
+ni cierres semanales. La suite
 tampoco simula fallos de PostgreSQL para comprobar las respuestas 500.

@@ -74,6 +74,8 @@ Estado: aceptado según D08.
   como cumplimiento de esa semana.
 - Retirar una tarea no elimina su compromiso ni reduce
   el total utilizado para calcular el cumplimiento.
+- Completar una tarea retirada dentro de la misma semana cumple su compromiso,
+  sin necesidad de reincorporarla a Hoy (D12).
 - Al cierre, las incompletas vuelven a Importantes.
 - Solo ingresan en la semana siguiente si el usuario vuelve
   a pasarlas a Hoy.

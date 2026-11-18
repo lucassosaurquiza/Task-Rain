@@ -10,6 +10,7 @@ type CommitmentData = {
 type WeeklyCommitment = CommitmentData & {
   id: string;
   withdrawnAt: Date | null;
+  completedAt: Date | null;
 };
 
 export async function getOrCreateWeeklyCommitment(
@@ -23,7 +24,8 @@ export async function getOrCreateWeeklyCommitment(
      ON CONFLICT (task_id, week_id) DO NOTHING
      RETURNING id, task_id AS "taskId",
                objective_id AS "objectiveId",
-               week_id AS "weekId", added_at AS "addedAt", withdrawn_at AS "withdrawnAt"`,
+                              week_id AS "weekId", added_at AS "addedAt",
+               withdrawn_at AS "withdrawnAt", completed_at AS "completedAt"`,
 
     [data.taskId, data.objectiveId, data.weekId, data.addedAt],
   );
@@ -53,7 +55,8 @@ export async function findWeeklyCommitment(
   const result = await client.query<WeeklyCommitment>(
     `SELECT id, task_id AS "taskId",
             objective_id AS "objectiveId",
-            week_id AS "weekId", added_at AS "addedAt", withdrawn_at AS "withdrawnAt"
+                       week_id AS "weekId", added_at AS "addedAt",
+            withdrawn_at AS "withdrawnAt", completed_at AS "completedAt"
      FROM public.weekly_commitments
      WHERE task_id = $1 AND week_id = $2`,
     [taskId, weekId],
@@ -81,13 +84,16 @@ export async function listWeeklyCommitments(
        o.title AS "objectiveTitle",
        c.week_id AS "weekId",
        c.added_at AS "addedAt",
-       c.withdrawn_at AS "withdrawnAt"
+             c.withdrawn_at AS "withdrawnAt",
+       c.completed_at AS "completedAt"
      FROM public.weekly_commitments AS c
      JOIN public.weeks AS w ON w.id = c.week_id
      JOIN public.tasks AS t ON t.id = c.task_id
      JOIN public.objectives AS o ON o.id = c.objective_id
      WHERE w.starts_at = $1
-     AND ($2::boolean = false OR c.withdrawn_at IS NULL)
+     AND ($2::boolean = false OR (
+       c.withdrawn_at IS NULL AND c.completed_at IS NULL
+     ))
      ORDER BY c.added_at ASC, c.id ASC`,
     [weekStartsAt, onlyActive],
   );
@@ -114,7 +120,8 @@ export async function withdrawWeeklyCommitment(
        c.objective_id AS "objectiveId",
        c.week_id AS "weekId",
        c.added_at AS "addedAt",
-       c.withdrawn_at AS "withdrawnAt"`,
+             c.withdrawn_at AS "withdrawnAt",
+       c.completed_at AS "completedAt"`,
     [taskId, weekStartsAt, withdrawnAt],
   );
 
@@ -136,9 +143,30 @@ export async function restoreWeeklyCommitment(
        objective_id AS "objectiveId",
        week_id AS "weekId",
        added_at AS "addedAt",
-       withdrawn_at AS "withdrawnAt"`,
+          withdrawn_at AS "withdrawnAt",
+       completed_at AS "completedAt"`,
     [taskId, weekId],
   );
 
   return result.rows[0] ?? null;
+}
+
+export async function completeWeeklyCommitment(
+  client: PoolClient,
+  taskId: string,
+  completedAt: Date,
+): Promise<boolean> {
+  const result = await client.query(
+    `UPDATE public.weekly_commitments AS c
+     SET completed_at = COALESCE(c.completed_at, $2)
+     FROM public.weeks AS w
+     WHERE w.id = c.week_id
+       AND c.task_id = $1
+       AND w.starts_at <= $2
+       AND $2 < w.ends_at
+       AND c.added_at <= $2`,
+    [taskId, completedAt],
+  );
+
+  return (result.rowCount ?? 0) > 0;
 }
