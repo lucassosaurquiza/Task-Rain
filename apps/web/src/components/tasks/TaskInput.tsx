@@ -1,52 +1,70 @@
 import { useState } from "react";
+import type { FormEvent } from "react";
 
 type TaskInputProps = {
-  onCreateTask: (title: string) => void;
+  onCreateTask: (title: string) => Promise<void>;
 };
 
 function TaskInput({ onCreateTask }: TaskInputProps) {
-  const [taskTitle, setTaskTitle] = useState("");
+  const [title, setTitle] = useState("");
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [error, setError] = useState<string | null>(null);
 
-  function handleSubmit() {
-    const normalizedTitle = taskTitle.trim();
+  async function handleSubmit(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
 
-    if (!normalizedTitle) {
+    const normalizedTitle = title.trim();
+
+    if (!normalizedTitle || isSubmitting) {
       return;
     }
 
-    onCreateTask(normalizedTitle);
-    setTaskTitle("");
+    setIsSubmitting(true);
+    setError(null);
+
+    try {
+      await onCreateTask(normalizedTitle);
+      setTitle("");
+    } catch {
+      setError(
+        "No pudimos confirmar que se guardó. Revisá la lista antes de reintentar.",
+      );
+    } finally {
+      setIsSubmitting(false);
+    }
   }
 
   return (
-    <section>
+    <form onSubmit={handleSubmit} className="mt-6">
       <label
         htmlFor="task-title"
-        className="text-sm font-semibold uppercase tracking-wide text-zinc-300"
+        className="text-sm font-semibold text-zinc-300"
       >
-        Volcá tu mente
+        ¿Qué tenés en mente?
       </label>
 
-      <div className="mt-4 rounded-lg border border-zinc-700 bg-zinc-950 p-3">
-        <textarea
-          id="task-title"
-          value={taskTitle}
-          onChange={(event) => setTaskTitle(event.target.value)}
-          placeholder="¿Qué hay en tu cabeza?..."
-          className="min-h-28 w-full resize-none bg-transparent text-sm text-zinc-100 outline-none placeholder:text-zinc-600"
-        />
+      <textarea
+        id="task-title"
+        value={title}
+        onChange={(event) => setTitle(event.target.value)}
+        disabled={isSubmitting}
+        className="mt-2 min-h-24 w-full rounded-md border border-zinc-700 bg-zinc-950 p-3 text-zinc-100 focus:border-emerald-400 disabled:opacity-60"
+      />
 
-        <div className="mt-3 flex justify-end">
-          <button
-            type="button"
-            onClick={handleSubmit}
-            className="rounded-md bg-emerald-400 px-4 py-2 text-sm font-semibold text-zinc-950 transition hover:bg-emerald-300"
-          >
-            Agregar tarea
-          </button>
-        </div>
-      </div>
-    </section>
+      {error && (
+        <p role="alert" className="mt-2 text-sm text-red-400">
+          {error}
+        </p>
+      )}
+
+      <button
+        type="submit"
+        disabled={isSubmitting || !title.trim()}
+        className="mt-3 rounded-md bg-emerald-400 px-4 py-2 font-semibold text-zinc-950 disabled:cursor-not-allowed disabled:opacity-50"
+      >
+        {isSubmitting ? "Guardando..." : "Agregar a la lluvia"}
+      </button>
+    </form>
   );
 }
 
