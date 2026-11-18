@@ -6,7 +6,7 @@ import Header from "../components/layout/Header";
 import ObjectivesPage from "../components/objectives/ObjectivesPage";
 import TasksPage from "../components/tasks/TasksPage";
 import { mockTasks } from "../data/mockTasks";
-import type { Task, TaskStatus } from "../types/task";
+import type { Task } from "../types/task";
 import HomeDashboard from "../components/dashboard/HomeDashboard";
 import { mockDashboardStats } from "../data/mockDashboard";
 
@@ -47,23 +47,6 @@ function App() {
     );
   }
 
-  function handleUpdateTaskStatus(taskId: string, status: TaskStatus) {
-    setTasks((currentTasks) =>
-      currentTasks.map((task) => {
-        if (task.id !== taskId) {
-          return task;
-        }
-
-        return {
-          ...task,
-          status,
-          completedAt:
-            status === "completed" ? new Date().toISOString() : undefined,
-        };
-      }),
-    );
-  }
-
   return (
     <AppShell>
       <Header activeView={activeView} onChangeView={setActiveView} />
@@ -77,14 +60,7 @@ function App() {
           onOpenTasks={() => setActiveView("tasks")}
         />
       ) : null}
-      {activeView === "tasks" ? (
-        <TasksPage
-          tasks={tasks}
-          onCreateTask={handleCreateTask}
-          onUndoCreateTask={handleUndoCreateTask}
-          onUpdateTaskStatus={handleUpdateTaskStatus}
-        />
-      ) : null}
+      {activeView === "tasks" ? <TasksPage /> : null}
       {activeView === "objectives" ? <ObjectivesPage /> : null}
     </AppShell>
   );
