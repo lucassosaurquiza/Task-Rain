@@ -76,3 +76,29 @@ export async function updateTaskObjective(
 
   return response.json();
 }
+
+export async function completeTask(taskId: string): Promise<ApiTask> {
+  const response = await fetch(
+    `/api/tasks/${encodeURIComponent(taskId)}/complete`,
+    {
+      method: "PATCH",
+    },
+  );
+
+  if (!response.ok) {
+    const body: unknown = await response.json().catch(() => null);
+
+    if (
+      typeof body === "object" &&
+      body !== null &&
+      "error" in body &&
+      typeof body.error === "string"
+    ) {
+      throw new Error(body.error);
+    }
+
+    throw new Error("No se pudo completar la tarea.");
+  }
+
+  return response.json();
+}
