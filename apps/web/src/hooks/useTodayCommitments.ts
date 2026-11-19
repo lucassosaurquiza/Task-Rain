@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
 import { listTodayCommitments, withdrawTask } from "../api/weeklyCommitments";
+import { completeTask } from "../api/tasks";
 import type { WeeklyCommitmentListItem } from "../api/weeklyCommitments";
 
 export function useTodayCommitments() {
@@ -45,5 +46,21 @@ export function useTodayCommitments() {
     );
   }
 
-  return { commitments, isLoading, error, withdrawFromToday };
+  async function completeFromToday(taskId: string): Promise<void> {
+    const completedTask = await completeTask(taskId);
+
+    setCommitments((currentCommitments) =>
+      currentCommitments.filter(
+        (commitment) => commitment.taskId !== completedTask.id,
+      ),
+    );
+  }
+
+  return {
+    commitments,
+    isLoading,
+    error,
+    withdrawFromToday,
+    completeFromToday,
+  };
 }
