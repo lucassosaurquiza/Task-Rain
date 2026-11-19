@@ -40,7 +40,7 @@ function TaskInput({ onCreateTask }: TaskInputProps) {
         htmlFor="task-title"
         className="text-sm font-semibold text-zinc-300"
       >
-        ¿Qué tenés en mente?
+        ¿En que trabajamos hoy?
       </label>
 
       <textarea
