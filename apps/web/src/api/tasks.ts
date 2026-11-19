@@ -54,3 +54,25 @@ export async function updateTaskImportance(
 
   return response.json();
 }
+
+export async function updateTaskObjective(
+  taskId: string,
+  objectiveId: string | null,
+): Promise<ApiTask> {
+  const response = await fetch(
+    `/api/tasks/${encodeURIComponent(taskId)}/objective`,
+    {
+      method: "PATCH",
+      headers: {
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({ objectiveId }),
+    },
+  );
+
+  if (!response.ok) {
+    throw new Error("No se pudo actualizar el objetivo de la tarea.");
+  }
+
+  return response.json();
+}

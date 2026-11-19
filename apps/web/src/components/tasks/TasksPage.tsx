@@ -1,9 +1,23 @@
 import { useTasks } from "../../hooks/useTasks";
+import { useObjectives } from "../../hooks/useObjectives";
 import TaskInput from "./TaskInput";
 import TaskImportanceButton from "../dashboard/TaskImportanceButton";
+import TaskObjectiveSelect from "./TaskObjectiveSelect";
 
 function TasksPage() {
-  const { tasks, isLoading, error, addTask, changeTaskImportance } = useTasks();
+  const {
+    tasks,
+    isLoading,
+    error,
+    addTask,
+    changeTaskImportance,
+    changeTaskObjective,
+  } = useTasks();
+  const {
+    objectives,
+    isLoading: isLoadingObjectives,
+    error: objectivesError,
+  } = useObjectives();
 
   return (
     <main className="flex flex-1 justify-center py-10">
@@ -15,6 +29,17 @@ function TasksPage() {
         <p className="mt-3 text-sm text-zinc-400">
           Todo lo que tenés en mente, en un solo lugar.
         </p>
+        {isLoadingObjectives && (
+          <p role="status" className="mt-4 text-sm text-zinc-400">
+            Cargando objetivos disponibles...
+          </p>
+        )}
+
+        {objectivesError && (
+          <p role="alert" className="mt-4 text-sm text-red-400">
+            No se pudieron cargar los objetivos. Recargá para volver a intentar.
+          </p>
+        )}
         {!isLoading && !error && <TaskInput onCreateTask={addTask} />}
         {isLoading ? (
           <p role="status" className="mt-6 text-zinc-400">
@@ -52,6 +77,14 @@ function TasksPage() {
                   isImportant={task.isImportant}
                   onChangeImportance={changeTaskImportance}
                 />
+                {!isLoadingObjectives && !objectivesError && (
+                  <TaskObjectiveSelect
+                    taskId={task.id}
+                    objectiveId={task.objectiveId}
+                    objectives={objectives}
+                    onChangeObjective={changeTaskObjective}
+                  />
+                )}
               </li>
             ))}
           </ul>
