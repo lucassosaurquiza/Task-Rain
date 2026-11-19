@@ -1,14 +1,10 @@
-import type { Task } from "../../types/task";
 import ProgressRing from "./ProgressRing";
+import HomeTaskCapture from "./HomeTaskCapture";
 import StatCard from "./StatCard";
 import WeeklyChart from "./WeeklyChart";
 import type { DashboardStats } from "../../types/dashboard";
 
 type HomeDashboardProps = {
-  unorganizedTaskCount: number;
-  onCreateTask: (title: string) => Task;
-  onUndoCreateTask: (taskId: string) => void;
-  onOpenTasks: () => void;
   dashboardStats: DashboardStats;
 };
 
@@ -16,6 +12,7 @@ function HomeDashboard({ dashboardStats }: HomeDashboardProps) {
   return (
     <main className="flex flex-1 items-center justify-center py-10">
       <section className="w-full space-y-6">
+        <HomeTaskCapture />
         <div>
           <h2 className="text-3xl font-semibold tracking-tight text-zinc-50">
             Rendimiento general
