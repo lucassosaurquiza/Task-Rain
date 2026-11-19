@@ -22,3 +22,10 @@ dist-ssr
 *.njsproj
 *.sln
 *.sw?
+tareas.txt
+
+# Local enviroment configuration
+
+.env 
+.env.*
+!.env.example
