@@ -46,3 +46,29 @@ export async function listTodayCommitments(
 
   return response.json();
 }
+
+export async function withdrawTask(taskId: string): Promise<WeeklyCommitment> {
+  const response = await fetch(
+    `/api/tasks/${encodeURIComponent(taskId)}/commitments/current/withdraw`,
+    {
+      method: "PATCH",
+    },
+  );
+
+  if (!response.ok) {
+    const body: unknown = await response.json().catch(() => null);
+
+    if (
+      typeof body === "object" &&
+      body !== null &&
+      "error" in body &&
+      typeof body.error === "string"
+    ) {
+      throw new Error(body.error);
+    }
+
+    throw new Error("No se pudo retirar la tarea de Hoy.");
+  }
+
+  return response.json();
+}

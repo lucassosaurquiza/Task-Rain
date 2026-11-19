@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { listTodayCommitments } from "../api/weeklyCommitments";
+import { listTodayCommitments, withdrawTask } from "../api/weeklyCommitments";
 import type { WeeklyCommitmentListItem } from "../api/weeklyCommitments";
 
 export function useTodayCommitments() {
@@ -35,5 +35,15 @@ export function useTodayCommitments() {
     return () => controller.abort();
   }, []);
 
-  return { commitments, isLoading, error };
+  async function withdrawFromToday(taskId: string): Promise<void> {
+    const withdrawnCommitment = await withdrawTask(taskId);
+
+    setCommitments((currentCommitments) =>
+      currentCommitments.filter(
+        (commitment) => commitment.id !== withdrawnCommitment.id,
+      ),
+    );
+  }
+
+  return { commitments, isLoading, error, withdrawFromToday };
 }
