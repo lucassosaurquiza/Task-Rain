@@ -1,8 +1,11 @@
 import { useTasks } from "../../hooks/useTasks";
 import { useObjectives } from "../../hooks/useObjectives";
+import { incorporateTask } from "../../api/weeklyCommitments";
+
 import TaskInput from "./TaskInput";
 import TaskImportanceButton from "../dashboard/TaskImportanceButton";
 import TaskObjectiveSelect from "./TaskObjectiveSelect";
+import IncorporateTaskButton from "../dashboard/IncorporateTaskButton";
 
 function TasksPage() {
   const {
@@ -85,6 +88,10 @@ function TasksPage() {
                     onChangeObjective={changeTaskObjective}
                   />
                 )}
+                <IncorporateTaskButton
+                  taskId={task.id}
+                  onIncorporate={incorporateTask}
+                />
               </li>
             ))}
           </ul>

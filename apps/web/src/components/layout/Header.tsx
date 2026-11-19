@@ -1,4 +1,4 @@
-type AppView = "home" | "tasks" | "objectives";
+type AppView = "home" | "tasks" | "objectives" | "today";
 
 type NavItem = {
   label: string;
@@ -22,6 +22,10 @@ const navItems: NavItem[] = [
   {
     label: "Objetivos",
     view: "objectives",
+  },
+  {
+    label: "Hoy",
+    view: "today",
   },
 ];
 

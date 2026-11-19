@@ -1,16 +1,18 @@
 import { useLocalStorageState } from "../hooks/useLocalStorageState";
 import { useState } from "react";
 import { isTaskArray } from "../utils/taskGuards";
+import { mockTasks } from "../data/mockTasks";
+import { mockDashboardStats } from "../data/mockDashboard";
+import type { Task } from "../types/task";
+
 import AppShell from "../components/layout/AppShell";
 import Header from "../components/layout/Header";
 import ObjectivesPage from "../components/objectives/ObjectivesPage";
 import TasksPage from "../components/tasks/TasksPage";
-import { mockTasks } from "../data/mockTasks";
-import type { Task } from "../types/task";
 import HomeDashboard from "../components/dashboard/HomeDashboard";
-import { mockDashboardStats } from "../data/mockDashboard";
+import TodayPage from "../components/dashboard/TodayPage";
 
-type AppView = "home" | "tasks" | "objectives";
+type AppView = "home" | "tasks" | "objectives" | "today";
 
 function createTask(title: string): Task {
   return {
@@ -62,6 +64,7 @@ function App() {
       ) : null}
       {activeView === "tasks" ? <TasksPage /> : null}
       {activeView === "objectives" ? <ObjectivesPage /> : null}
+      {activeView === "today" ? <TodayPage /> : null}
     </AppShell>
   );
 }
