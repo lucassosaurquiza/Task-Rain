@@ -1,5 +1,10 @@
 import { useEffect, useState } from "react";
-import { createTask, listTasks, updateTaskImportance } from "../api/tasks";
+import {
+  createTask,
+  listTasks,
+  updateTaskImportance,
+  updateTaskObjective,
+} from "../api/tasks";
 import type { ApiTask } from "../api/tasks";
 
 export function useTasks() {
@@ -47,10 +52,34 @@ export function useTasks() {
 
     setTasks((currentTasks) =>
       currentTasks.map((task) =>
-        task.id === updatedTask.id ? updatedTask : task,
+        task.id === updatedTask.id
+          ? { ...task, isImportant: updatedTask.isImportant }
+          : task,
       ),
     );
   }
 
-  return { tasks, isLoading, error, addTask, changeTaskImportance };
+  async function changeTaskObjective(
+    taskId: string,
+    objectiveId: string | null,
+  ): Promise<void> {
+    const updatedTask = await updateTaskObjective(taskId, objectiveId);
+
+    setTasks((currentTasks) =>
+      currentTasks.map((task) =>
+        task.id === updatedTask.id
+          ? { ...task, objectiveId: updatedTask.objectiveId }
+          : task,
+      ),
+    );
+  }
+
+  return {
+    tasks,
+    isLoading,
+    error,
+    addTask,
+    changeTaskImportance,
+    changeTaskObjective,
+  };
 }
