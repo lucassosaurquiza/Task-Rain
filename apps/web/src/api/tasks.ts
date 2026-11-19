@@ -32,3 +32,25 @@ export async function createTask(title: string): Promise<ApiTask> {
 
   return response.json();
 }
+
+export async function updateTaskImportance(
+  taskId: string,
+  isImportant: boolean,
+): Promise<ApiTask> {
+  const response = await fetch(
+    `/api/tasks/${encodeURIComponent(taskId)}/importance`,
+    {
+      method: "PATCH",
+      headers: {
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({ isImportant }),
+    },
+  );
+
+  if (!response.ok) {
+    throw new Error("No se pudo actualizar la importancia.");
+  }
+
+  return response.json();
+}

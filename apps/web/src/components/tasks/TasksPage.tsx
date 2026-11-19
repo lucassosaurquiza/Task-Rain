@@ -1,8 +1,9 @@
 import { useTasks } from "../../hooks/useTasks";
 import TaskInput from "./TaskInput";
+import TaskImportanceButton from "../dashboard/TaskImportanceButton";
 
 function TasksPage() {
-  const { tasks, isLoading, error, addTask } = useTasks();
+  const { tasks, isLoading, error, addTask, changeTaskImportance } = useTasks();
 
   return (
     <main className="flex flex-1 justify-center py-10">
@@ -46,6 +47,11 @@ function TasksPage() {
                   {task.isImportant && <span>Importante</span>}
                   {task.completedAt && <span>Completada</span>}
                 </div>
+                <TaskImportanceButton
+                  taskId={task.id}
+                  isImportant={task.isImportant}
+                  onChangeImportance={changeTaskImportance}
+                />
               </li>
             ))}
           </ul>
