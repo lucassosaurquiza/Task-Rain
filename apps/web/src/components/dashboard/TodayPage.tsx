@@ -1,7 +1,10 @@
 import { useTodayCommitments } from "../../hooks/useTodayCommitments";
 
+import WithdrawTaskButton from "../tasks/WithdrawTaskButton";
+
 function TodayPage() {
-  const { commitments, isLoading, error } = useTodayCommitments();
+  const { commitments, isLoading, error, withdrawFromToday } =
+    useTodayCommitments();
 
   return (
     <main className="flex flex-1 justify-center py-10">
@@ -38,6 +41,10 @@ function TodayPage() {
                 <p className="mt-2 text-sm text-zinc-400">
                   Objetivo: {commitment.objectiveTitle}
                 </p>
+                <WithdrawTaskButton
+                  taskId={commitment.taskId}
+                  onWithdraw={withdrawFromToday}
+                />
               </li>
             ))}
           </ul>
